@@ -17,7 +17,6 @@ flask-cors>=4.0.0
 
 # Database support
 sqlalchemy>=2.0.0
-sqlite3
 
 # Scheduling and task management
 apscheduler>=3.10.0
@@ -27,7 +26,6 @@ python-dateutil>=2.8.0
 pytz>=2023.3
 
 # Notification systems
-smtplib
 slack-sdk>=3.21.0
 
 # Testing

@@ -47,6 +47,7 @@ class TestMistAuth(unittest.TestCase):
         self.assertEqual(auth.org_id, self.test_org_id)
         self.assertEqual(auth.base_url, self.test_base_url)
         
+    @patch.dict(os.environ, {}, clear=True)
     def test_init_without_token(self):
         """Test initialization without API token raises error."""
         with self.assertRaises(MistAuthError) as context:

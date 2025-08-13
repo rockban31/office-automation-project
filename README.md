@@ -7,9 +7,20 @@ This project contains tools and scripts for automating network troubleshooting a
 This project implements an automated network monitoring and troubleshooting system using Mist API capabilities. See `NETWORK_AUTOMATION_PLAN.md` for detailed documentation.
 
 ## Getting Started
-- Add your automation scripts and tools to this directory
-- Document each automation tool with clear instructions
-- Include any dependencies or requirements
+
+### Quick Setup
+1. **Validate project structure**: `python validate_setup.py`
+2. **Run setup script**: `python setup.py`
+3. **Update configuration**: Edit `.env` file with your Mist API credentials
+4. **Activate virtual environment**: `venv\Scripts\activate` (Windows) or `source venv/bin/activate` (Linux/Mac)
+5. **Test installation**: `python examples/auth_example.py`
+
+### Manual Setup
+If you prefer manual setup:
+1. Create virtual environment: `python -m venv venv`
+2. Activate virtual environment: `venv\Scripts\activate`
+3. Install dependencies: `pip install -r requirements.txt`
+4. Copy `.env.example` to `.env` and update with your credentials
 
 ## Structure
 ```
