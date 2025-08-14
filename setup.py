@@ -31,8 +31,8 @@ def create_virtual_environment():
         print("Virtual environment already exists.")
         return True
     
-    # Create virtual environment
-    result = run_command(f"{sys.executable} -m venv venv")
+    # Wrap sys.executable in quotes to handle spaces in path
+    result = run_command(f'"{sys.executable}" -m venv venv')
     if result is None:
         print("Failed to create virtual environment.")
         return False
@@ -58,13 +58,32 @@ def install_dependencies():
     if result is None:
         print("Failed to upgrade pip.")
         return False
-    
-    # Install dependencies from requirements.txt
-    result = run_command(f"{pip_cmd} install -r requirements.txt")
+
+    # Detect if a proxy is needed from environment variables
+    proxy = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
+    proxy_arg = f'--proxy={proxy} ' if proxy else ''
+
+    # Remove hardcoded proxy and cert options, use only if needed
+    pip_install_cmd = (
+        f'{pip_cmd} install -r requirements.txt '
+        f'{proxy_arg}'
+        '--trusted-host pypi.org '
+        '--trusted-host files.pythonhosted.org '
+        '--trusted-host pypi.python.org '
+        '--disable-pip-version-check '
+        '--no-cache-dir '
+        '--timeout 100'
+    )
+
+    result = run_command(pip_install_cmd)
     if result is None:
         print("Failed to install dependencies.")
+        if proxy:
+            print("Check your proxy settings or network connection.")
+        else:
+            print("If you are behind a proxy, set the HTTP_PROXY/HTTPS_PROXY environment variable and try again.")
         return False
-    
+
     print("Dependencies installed successfully.")
     return True
 
