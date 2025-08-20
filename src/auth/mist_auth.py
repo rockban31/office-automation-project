@@ -113,6 +113,7 @@ class MistAuth:
             'User-Agent': 'Mist-Network-Automation-Tool/1.0'
         })
         
+        session.verify = False  # <--- Add this line to disable SSL verification
         return session
     
     def _validate_auth(self) -> None:
@@ -318,4 +319,3 @@ class MistAuth:
         Context manager exit.
         """
         self.close()
-
