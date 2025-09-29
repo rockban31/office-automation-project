@@ -14,7 +14,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from auth import MistAuth, MistAuthError, MistRateLimitError
-from config.auth_config import MistAuthConfig, create_env_template
+from config.auth_config import get_mist_config, create_env_template
 
 def main():
     """Main function demonstrating Mist API authentication."""
@@ -29,8 +29,8 @@ def main():
         print("1. Initializing MistAuth with environment variables...")
         auth = MistAuth()
         
-        # Option 2: Using configuration class
-        # config = MistAuthConfig.get_validated_config()
+        # Option 2: Using configuration function
+        # config = get_mist_config()
         # auth = MistAuth(**config)
         
         # Option 3: Direct parameters

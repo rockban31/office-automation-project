@@ -7,24 +7,81 @@ A comprehensive network automation platform built around Mist API integration fo
 - **Complete Mist API Integration** - Full authentication and high-level API client
 - **Network Monitoring** - Real-time device, site, and client monitoring
 - **Automated Troubleshooting** - Intelligent issue detection and resolution
-- **Comprehensive Testing** - 18+ unit tests ensuring reliability
+- **Comprehensive Testing** - Unit tests ensuring reliability
 - **Production Ready** - Proper error handling, logging, and security
 
 ## 🚀 Current Capabilities
 ### ✅ Implemented
 - **Authentication System** (`src/auth/`) - Secure Mist API authentication with token management
 - **API Client Library** (`src/api/`) - High-level network operations client
-- **Testing Suite** (`tests/`) - Comprehensive unit tests with mocking
+- **Mist Wireless Troubleshooter** (`src/troubleshooting/`) - ✨ **NEW!** Complete flowchart-based wireless troubleshooting
+- **Unified CLI Interface** (`office_automation_cli.py`) - Comprehensive command-line interface
+- **Testing Suite** (`tests/`) - Authentication unit tests
 - **Example Scripts** (`examples/`) - Real-world usage demonstrations
 - **Project Automation** - Setup scripts and validation tools
 
 ### 🔧 Ready for Development
 - **Monitoring Modules** (`src/monitoring/`) - Network health and performance monitoring
-- **Troubleshooting Tools** (`src/troubleshooting/`) - Automated diagnostics and fixes
 - **Alert Management** (`src/alerts/`) - Notification and escalation systems
 - **Web Dashboard** (`src/dashboard/`) - Visual network management interface
 
 See `NETWORK_AUTOMATION_PLAN.md` for detailed technical documentation.
+
+## 📶 Mist Wireless Troubleshooting (Featured Module)
+
+The integrated Mist Wireless Troubleshooter provides comprehensive, flowchart-based diagnosis of wireless client connectivity issues.
+
+### 🎯 Key Features
+- **Complete Flowchart Implementation**: Follows exact troubleshooting decision tree
+- **Smart Escalation Paths**: Automatic routing to appropriate troubleshooting teams
+- **Priority-Based Classification**: Issues categorized as HIGH/MEDIUM/LOW severity
+- **Comprehensive Analysis**: Client health, AP hardware, RF environment, infrastructure checks
+- **Integration Ready**: Uses existing Office Automation auth system
+
+### 🔍 Troubleshooting Flow
+1. **Client Association Status & Events** - Validates client presence and recent activity
+2. **Authentication & Authorization** - Detects ISE/RADIUS/802.1X issues → Routes to Security team
+3. **DHCP/DNS Problem Detection** - Identifies network infrastructure issues → Routes to Infrastructure team
+4. **Client Health Metrics** - RSSI, SNR, retries, latency analysis
+5. **Detailed Analysis** (if health issues found):
+   - Client connectivity & reachability testing
+   - AP hardware status monitoring
+   - RF environment analysis
+   - Comprehensive prioritized recommendations
+
+### 🚀 Quick Start
+```bash
+# Set your API token (one-time setup)
+export MIST_API_TOKEN="your_mist_api_token_here"
+
+# Troubleshoot a wireless client
+python office_automation_cli.py wireless troubleshoot \
+  --client-mac aa:bb:cc:dd:ee:ff \
+  --client-ip 192.168.1.100
+```
+
+### 📊 Sample Output
+```
+======================================================================
+MIST WIRELESS NETWORK TROUBLESHOOTING (Office Automation Integration)
+======================================================================
+🔍 [STEP 1] Gathering Client Association Status & Events...
+✅ Client found: TestDevice on AP ac:12:34:56:78:90
+
+🔍 [STEP 2] Checking Authentication and Authorization Failure Logs...
+✅ No authentication/authorization issues detected
+
+🔍 [STEP 3] Checking DNS/DHCP Lease Errors...
+✅ No DNS/DHCP lease errors detected
+
+🔍 [STEP 4] Analyzing Client Health Metrics...
+🟡 CLIENT HEALTH ISSUES DETECTED:
+   • RSSI: Poor signal strength: -75 dBm [MEDIUM]
+   • Channel Utilization (5GHz): High utilization: 78% [MEDIUM]
+
+🎯 COMPREHENSIVE TROUBLESHOOTING COMPLETE
+   Issues found: 3 (0 HIGH, 3 MEDIUM)
+```
 
 ## Getting Started
 
@@ -44,7 +101,25 @@ If you prefer manual setup:
 
 ## 🔧 API Usage
 
-### Basic Authentication
+### Unified CLI Interface (Recommended)
+```bash
+# Set environment variable (one-time setup)
+export MIST_API_TOKEN="your_mist_api_token_here"
+
+# Test authentication
+python office_automation_cli.py auth test
+
+# List organizations
+python office_automation_cli.py orgs list
+
+# Troubleshoot wireless client (main feature)
+python office_automation_cli.py wireless troubleshoot --client-mac aa:bb:cc:dd:ee:ff --client-ip 192.168.1.100
+
+# Verbose troubleshooting with extended history
+python office_automation_cli.py wireless troubleshoot --client-mac aa:bb:cc:dd:ee:ff --client-ip 192.168.1.100 --verbose --hours-back 48
+```
+
+### Basic Authentication (Programmatic)
 ```python
 from src.auth.mist_auth import MistAuth
 
@@ -78,9 +153,27 @@ with MistNetworkClient() as client:
     print(f"Network health: {health['status']}")
 ```
 
+### Wireless Network Troubleshooting (Main Feature)
+```python
+from src.troubleshooting.mist_wireless import MistWirelessTroubleshooter
+
+# Complete wireless troubleshooting workflow
+with MistWirelessTroubleshooter() as troubleshooter:
+    results = troubleshooter.troubleshoot_client(
+        client_ip="192.168.1.100",
+        client_mac="aa:bb:cc:dd:ee:ff",
+        hours_back=24
+    )
+    
+    print(f"Status: {results['status']}")
+    print(f"Issues found: {len(results['issues_found'])}")
+    print(f"Escalation: {results.get('escalation_path')}")
+```
+
 ### Example Scripts
 - `examples/auth_example.py` - Basic authentication testing
-- `examples/network_client_example.py` - Comprehensive network monitoring demo
+- `examples/network_client_example.py` - Network client operations demo
+- `office_automation_cli.py` - **Main CLI interface with wireless troubleshooting**
 
 ## 🧪 Testing
 
@@ -95,19 +188,18 @@ python -m pytest tests/ -v
 
 # Run specific test file
 python -m pytest tests/test_auth.py -v
-python -m pytest tests/test_api_client.py -v
 ```
 
 ### Test Coverage
 - **Authentication Tests**: 5 tests covering token validation, error handling, context management
-- **API Client Tests**: 13 tests covering all network operations, error scenarios, mocking
-- **Total**: 18+ comprehensive unit tests ensuring reliability
+- **Total**: Focused unit tests ensuring core reliability
 
 ## 📁 Project Structure
 ```
-office automation project/
+office-automation-project/
 ├── README.md                           # This file
 ├── NETWORK_AUTOMATION_PLAN.md          # Detailed technical documentation
+├── office_automation_cli.py            # ✨ NEW! Unified CLI interface
 ├── requirements.txt                    # Python dependencies
 ├── setup.py                           # Automated project setup
 ├── validate_setup.py                  # Project validation tool
@@ -121,7 +213,7 @@ office automation project/
 ├── docs/                              # Additional documentation
 ├── examples/                          # Usage examples
 │   ├── auth_example.py                # Basic authentication demo
-│   └── network_client_example.py      # Network operations demo
+│   └── network_client_example.py     # Network client operations demo
 ├── src/                               # Source code
 │   ├── __init__.py                    # Package initialization
 │   ├── auth/                          # ✅ Authentication system
@@ -134,17 +226,17 @@ office automation project/
 │   ├── config/                        # ✅ Configuration management
 │   │   ├── __init__.py
 │   │   └── auth_config.py             # Authentication configuration
+│   ├── troubleshooting/               # ✨ ✅ Mist Wireless Troubleshooting (NEW!)
+│   │   ├── __init__.py                # Module exports
+│   │   └── mist_wireless.py           # Complete wireless troubleshooting (771 lines)
 │   ├── monitoring/                    # 🔧 Network monitoring (ready for development)
-│   │   └── __init__.py
-│   ├── troubleshooting/               # 🔧 Troubleshooting tools (ready for development)
 │   │   └── __init__.py
 │   ├── alerts/                        # 🔧 Alert management (ready for development)
 │   │   └── __init__.py
 │   └── dashboard/                     # 🔧 Web dashboard (ready for development)
 │       └── __init__.py
 └── tests/                             # ✅ Test suite
-    ├── test_auth.py                   # Authentication tests (5 tests)
-    └── test_api_client.py             # API client tests (13 tests)
+    └── test_auth.py                   # Authentication tests (5 tests)
 ```
 
 ## Contributing

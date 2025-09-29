@@ -2,6 +2,7 @@
 requests>=2.31.0
 urllib3>=2.0.0
 python-dotenv>=1.0.0
+mistapi>=0.57.0
 
 # Data processing and analysis
 pandas>=2.0.0
@@ -51,3 +52,6 @@ tenacity>=8.2.0
 
 # Time series data (optional)
 influxdb-client>=1.37.0
+
+# Mist Wireless Troubleshooting dependencies
+ipaddress>=1.0.23

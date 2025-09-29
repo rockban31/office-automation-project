@@ -3,6 +3,12 @@ Troubleshooting module for network automation.
 
 This module contains tools and utilities for diagnosing
 and resolving network issues automatically.
+
+Modules:
+    - mist_wireless: Complete Mist wireless network troubleshooting solution
 """
 
-__version__ = "1.0.0"
+from .mist_wireless import MistWirelessTroubleshooter
+
+__version__ = "2.0.0"
+__all__ = ['MistWirelessTroubleshooter']

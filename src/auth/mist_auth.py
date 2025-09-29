@@ -5,10 +5,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 
-import requests
-from requests.exceptions import HTTPError, Timeout, RequestException
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+import mistapi
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -35,12 +32,9 @@ class MistAuth:
     Mist API Authentication and HTTP Client
     
     This class provides secure authentication and HTTP client functionality
-    for interacting with the Mist API. It includes features such as:
-    - Token-based authentication
-    - Rate limiting handling
-    - Request retry logic
-    - Session management
-    - Error handling
+    for interacting with the Mist API using the official mistapi library.
+    It maintains backward compatibility with the original interface while
+    leveraging the efficiency and features of the mistapi module.
     """
     
     def __init__(self, api_token: Optional[str] = None, 
@@ -50,141 +44,88 @@ class MistAuth:
                  max_retries: int = 3,
                  backoff_factor: float = 1.0):
         """
-        Initialize Mist API authentication.
+        Initialize Mist API authentication using mistapi.
         
         Args:
             api_token: Mist API token (can be set via MIST_API_TOKEN env var)
             base_url: Base URL for Mist API (default: https://api.mist.com/api/v1)
             org_id: Organization ID (can be set via MIST_ORG_ID env var)
-            timeout: Request timeout in seconds
-            max_retries: Maximum number of retry attempts
-            backoff_factor: Backoff factor for retry delays
+            timeout: Request timeout in seconds (for backward compatibility)
+            max_retries: Maximum number of retry attempts (for backward compatibility)
+            backoff_factor: Backoff factor for retry delays (for backward compatibility)
         """
         self.api_token = api_token or os.getenv('MIST_API_TOKEN')
-        self.base_url = base_url or os.getenv('MIST_BASE_URL', 'https://api.mist.com/api/v1')
         self.org_id = org_id or os.getenv('MIST_ORG_ID')
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
         
-        # Rate limiting tracking
-        self.rate_limit_remaining = None
-        self.rate_limit_reset = None
-        self.last_request_time = None
+        # Extract host from base_url for mistapi
+        if base_url:
+            # Convert https://api.mist.com/api/v1 to api.mist.com
+            import urllib.parse
+            parsed = urllib.parse.urlparse(base_url or os.getenv('MIST_BASE_URL', 'https://api.mist.com/api/v1'))
+            self.host = parsed.netloc
+        else:
+            self.host = os.getenv('MIST_HOST', 'api.mist.com')
+        
+        # For backward compatibility
+        self.base_url = f"https://{self.host}/api/v1"
         
         # Validate required parameters
         if not self.api_token:
             raise MistAuthError('API token must be provided via environment variable MIST_API_TOKEN or constructor parameter.')
         
-        # Initialize session with retry strategy
-        self.session = self._create_session()
-        
-        # Validate authentication on initialization
-        self._validate_auth()
-        
-        logger.info(f"MistAuth initialized successfully for org_id: {self.org_id}")
-    
-    def _create_session(self) -> requests.Session:
-        """
-        Create a requests session with retry strategy and authentication headers.
-        
-        Returns:
-            Configured requests.Session object
-        """
-        session = requests.Session()
-        
-        # Configure retry strategy
-        retry_strategy = Retry(
-            total=self.max_retries,
-            backoff_factor=self.backoff_factor,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["HEAD", "GET", "OPTIONS", "POST", "PUT", "DELETE"]
-        )
-        
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        
-        # Set authentication headers
-        session.headers.update({
-            'Authorization': f'Token {self.api_token}',
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'User-Agent': 'Mist-Network-Automation-Tool/1.0'
-        })
-        
-        session.verify = False  # <--- Add this line to disable SSL verification
-        return session
-    
-    def _validate_auth(self) -> None:
-        """
-        Validate authentication by making a test API call.
-        
-        Raises:
-            MistAuthError: If authentication fails
-        """
+        # Initialize mistapi session
         try:
-            response = self.session.get(
-                f"{self.base_url}/self",
-                timeout=self.timeout
+            self.session = mistapi.APISession(
+                apitoken=self.api_token,
+                host=self.host,
+                console_log_level=logging.WARNING,  # Reduce console noise
+                show_cli_notif=False  # Disable decorative text
             )
-            response.raise_for_status()
+            self.session.login()
             
-            user_info = response.json()
-            logger.info(f"Authentication successful for user: {user_info.get('email', 'Unknown')}")
+            # Rate limiting tracking (for backward compatibility)
+            self.rate_limit_remaining = None
+            self.rate_limit_reset = None
+            self.last_request_time = None
             
-            # Update rate limit info
-            self._update_rate_limit_info(response)
-            
-        except HTTPError as e:
-            if e.response.status_code == 401:
-                raise MistAuthError("Invalid API token. Please check your MIST_API_TOKEN.", 401)
-            elif e.response.status_code == 403:
-                raise MistAuthError("Insufficient permissions. Please check your API token privileges.", 403)
-            else:
-                raise MistAuthError(f"Authentication validation failed: {e}", e.response.status_code)
         except Exception as e:
-            raise MistAuthError(f"Failed to validate authentication: {e}")
+            raise MistAuthError(f"Failed to initialize mistapi session: {e}")
+        
+        logger.info(f"MistAuth initialized successfully using mistapi for org_id: {self.org_id}")
     
-    def _update_rate_limit_info(self, response: requests.Response) -> None:
+    def _get_mistapi_response_data(self, response: Any) -> Dict[str, Any]:
         """
-        Update rate limit information from response headers.
+        Extract data from mistapi response object.
         
         Args:
-            response: HTTP response object
+            response: mistapi.APIResponse object
+            
+        Returns:
+            Dictionary containing response data
         """
-        self.rate_limit_remaining = int(response.headers.get('X-RateLimit-Remaining', 0))
-        
-        reset_time = response.headers.get('X-RateLimit-Reset')
-        if reset_time:
-            self.rate_limit_reset = datetime.fromtimestamp(int(reset_time))
-        
-        self.last_request_time = datetime.now()
-    
-    def _check_rate_limit(self) -> None:
-        """
-        Check if we're approaching rate limits and implement backoff if necessary.
-        """
-        if self.rate_limit_remaining is not None and self.rate_limit_remaining < 10:
-            if self.rate_limit_reset:
-                sleep_time = (self.rate_limit_reset - datetime.now()).total_seconds()
-                if sleep_time > 0:
-                    logger.warning(f"Rate limit approaching. Sleeping for {sleep_time:.2f} seconds.")
-                    time.sleep(sleep_time)
+        if hasattr(response, 'data') and response.data is not None:
+            return response.data
+        elif hasattr(response, 'result') and response.result is not None:
+            return response.result
+        else:
+            return {}
     
     def make_request(self, endpoint: str, method: str = 'GET', 
                     params: Optional[Dict[str, Any]] = None,
                     json_data: Optional[Dict[str, Any]] = None,
                     **kwargs) -> Dict[str, Any]:
         """
-        Make an authenticated request to the Mist API.
+        Make an authenticated request to the Mist API using mistapi.
         
         Args:
             endpoint: API endpoint (e.g., '/orgs/{org_id}/clients')
             method: HTTP method (GET, POST, PUT, DELETE)
             params: Query parameters
             json_data: JSON data for POST/PUT requests
-            **kwargs: Additional arguments for requests
+            **kwargs: Additional arguments (for backward compatibility)
         
         Returns:
             JSON response as dictionary
@@ -193,62 +134,28 @@ class MistAuth:
             MistAuthError: For authentication or HTTP errors
             MistRateLimitError: For rate limit errors
         """
-        # Check rate limits before making request
-        self._check_rate_limit()
-        
-        # Prepare URL
-        url = f"{self.base_url}{endpoint}"
-        
-        # Replace {org_id} placeholder if present
-        if '{org_id}' in url and self.org_id:
-            url = url.replace('{org_id}', self.org_id)
-        
         try:
-            # Make the request
-            response = self.session.request(
-                method=method,
-                url=url,
-                params=params,
-                json=json_data,
-                timeout=self.timeout,
-                **kwargs
-            )
+            # Replace {org_id} placeholder if present
+            if '{org_id}' in endpoint and self.org_id:
+                endpoint = endpoint.replace('{org_id}', self.org_id)
             
-            # Update rate limit information
-            self._update_rate_limit_info(response)
+            # Use mistapi methods based on HTTP method
+            if method.upper() == 'GET':
+                response = self.session.mist_get(endpoint, query=params)
+            elif method.upper() == 'POST':
+                response = self.session.mist_post(endpoint, body=json_data)
+            elif method.upper() == 'PUT':
+                response = self.session.mist_put(endpoint, body=json_data)
+            elif method.upper() == 'DELETE':
+                response = self.session.mist_delete(endpoint, query=params)
+            else:
+                raise MistAuthError(f"Unsupported HTTP method: {method}")
             
-            # Handle different response status codes
-            if response.status_code == 429:
-                retry_after = int(response.headers.get('Retry-After', 60))
-                raise MistRateLimitError(
-                    f"Rate limit exceeded. Retry after {retry_after} seconds.",
-                    retry_after
-                )
+            # Extract data from mistapi response
+            return self._get_mistapi_response_data(response)
             
-            response.raise_for_status()
-            
-            # Handle empty responses
-            if response.status_code == 204:
-                return {}
-            
-            try:
-                return response.json()
-            except json.JSONDecodeError:
-                logger.warning(f"Non-JSON response received: {response.text}")
-                return {'raw_response': response.text}
-                
-        except HTTPError as e:
-            error_msg = f"HTTP error {e.response.status_code}: {e.response.text}"
-            logger.error(error_msg)
-            raise MistAuthError(error_msg, e.response.status_code)
-            
-        except Timeout as e:
-            error_msg = f"Request timed out after {self.timeout} seconds: {e}"
-            logger.error(error_msg)
-            raise MistAuthError(error_msg)
-            
-        except RequestException as e:
-            error_msg = f"Request failed: {e}"
+        except Exception as e:
+            error_msg = f"API request failed: {e}"
             logger.error(error_msg)
             raise MistAuthError(error_msg)
     
@@ -259,7 +166,8 @@ class MistAuth:
         Returns:
             List of organization dictionaries
         """
-        return self.make_request('/orgs')
+        response = mistapi.api.v1.orgs.listOrgs(self.session)
+        return self._get_mistapi_response_data(response)
     
     def get_organization_info(self, org_id: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -275,7 +183,8 @@ class MistAuth:
         if not org_id:
             raise MistAuthError("Organization ID must be provided")
         
-        return self.make_request(f'/orgs/{org_id}')
+        response = mistapi.api.v1.orgs.getOrg(self.session, org_id)
+        return self._get_mistapi_response_data(response)
     
     def test_connection(self) -> Dict[str, Any]:
         """
@@ -285,8 +194,17 @@ class MistAuth:
             Dictionary containing connection status and user information
         """
         try:
-            user_info = self.make_request('/self')
-            org_info = self.get_organization_info() if self.org_id else None
+            # Get user info using mistapi
+            user_response = mistapi.api.v1.self.self.getSelf(self.session)
+            user_info = self._get_mistapi_response_data(user_response)
+            
+            # Get org info if org_id is set
+            org_info = None
+            if self.org_id:
+                try:
+                    org_info = self.get_organization_info()
+                except Exception as e:
+                    logger.warning(f"Could not get org info: {e}")
             
             return {
                 'status': 'connected',
@@ -303,10 +221,13 @@ class MistAuth:
     
     def close(self) -> None:
         """
-        Close the HTTP session.
+        Close the mistapi session.
         """
-        if self.session:
-            self.session.close()
+        if hasattr(self.session, 'logout'):
+            try:
+                self.session.logout()
+            except Exception as e:
+                logger.warning(f"Error during logout: {e}")
     
     def __enter__(self):
         """

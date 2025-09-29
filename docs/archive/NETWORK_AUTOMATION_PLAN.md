@@ -57,41 +57,143 @@ Client Association Status & Events → Authentication/Authorization Checks → D
   - Health monitoring (health_check)
   - Context manager support for resource cleanup
 
-- ✅ **Comprehensive Testing** (`tests/`)
-  - 18 unit tests covering all functionality
-  - Full mocking for external dependencies
+- ✅ **Core Testing** (`tests/`)
+  - Authentication unit tests with full coverage
   - Error scenario testing
   - Context manager testing
-  - 100% test coverage for authentication and API client
 
 - ✅ **Example Implementations** (`examples/`)
   - `auth_example.py` - Basic authentication demo
-  - `network_client_example.py` - Complete network monitoring workflow
+  - `network_client_example.py` - Network client operations demo
   - Real-world usage patterns and error handling
 
-**API Endpoints Implemented**:
+**Common Mist Automation Endpoints**:
+
+| Purpose | Endpoint Pattern | Description | Status |
+|---------|------------------|-------------|--------|
+| Site Information | `/api/v1/orgs/{org_id}/sites` | Lists sites under an organization | ✅ |
+| Site Details | `/api/v1/sites/{site_id}` | Returns details for a specific site | ✅ |
+| Client Events | `/api/v1/sites/{site_id}/clients/{mac}/events` | Get event logs for a specific client MAC | ✅ |
+| AP Health | `/api/v1/sites/{site_id}/aps/{ap_id}` | Gets AP status and configuration | ✅ |
+| Device Stats | `/api/v1/sites/{site_id}/stats/devices/{device_id}` | Fetches statistics for devices (APs, switches) | ✅ |
+| WLAN Config | `/api/v1/sites/{site_id}/wlans` | Read or update WLAN/SSID configurations | ✅ |
+| Webhooks (automation) | `/api/v1/orgs/{org_id}/webhooks` | Manage event-based automation hooks | ✅ |
+| Webhooks (site) | `/api/v1/sites/{site_id}/webhooks` | Site-specific webhook management | ✅ |
+
+**Additional Endpoints Implemented**:
 - ✅ `/self` - User authentication validation
 - ✅ `/orgs` - Organization management
-- ✅ `/orgs/{org_id}/sites` - Site listing
-- ✅ `/sites/{site_id}` - Site information
 - ✅ `/orgs/{org_id}/devices` - Organization devices
-- ✅ `/sites/{site_id}/devices` - Site-specific devices
 - ✅ `/sites/{site_id}/devices/{device_id}/status` - Device status
-- ✅ `/sites/{site_id}/devices/{device_id}/stats` - Device statistics
 - ✅ `/sites/{site_id}/clients` - Client information
 - ✅ `/sites/{site_id}/clients/{client_mac}/sessions` - Client sessions
 - ✅ `/sites/{site_id}/events` - Site events
 - ✅ `/orgs/{org_id}/alarms` - Organization alarms
 - ✅ `/sites/{site_id}/alarms` - Site-specific alarms
-- ✅ `/sites/{site_id}/stats` - Site statistics
 
 **Deliverables**:
 - ✅ Production-ready authentication system
 - ✅ Complete API client with all common operations
-- ✅ Comprehensive test suite (18 tests)
+- ✅ Focused test suite covering authentication
 - ✅ Example scripts and documentation
 - ✅ Error handling and logging framework
 - ✅ Ready foundation for building monitoring modules
+
+### Phase 1.75: Automated Troubleshooting Script ✅ COMPLETE
+
+**Objective**: Implement Python-based automated troubleshooting workflow
+
+**Components**:
+- ✅ **Python Troubleshooting Script** (`scripts/automated_network_troubleshooting.py`)
+  - Cross-platform compatible (Windows/Linux/Mac)
+  - Takes IP and MAC address as mandatory input parameters
+  - Validates input format for IP addresses and MAC addresses
+  - Object-oriented design with NetworkTroubleshooter class
+  - JSON output support for programmatic integration
+  - Direct integration with existing Mist API client
+  - Can be used as both command-line tool and Python module
+  - Advanced error handling and timeout management
+  - Comprehensive logging with timestamped entries
+  - Structured analysis workflow following the troubleshooting plan
+
+- ✅ **Comprehensive Mist API Integration Example** (`examples/mist_api_troubleshooting_example.py`)
+  - Demonstrates all Common Mist Automation Endpoints
+  - Complete network analysis using Mist API
+  - Site management and device health monitoring
+  - Client event analysis and troubleshooting
+  - Webhook automation setup examples
+
+**Automated Checks Implemented**:
+- ✅ **Authentication and Authorization Failure Detection**
+  - Scans Windows Security Event Log for failed logon events (4625, 4771, 4772, 4768)
+  - Searches for RADIUS/802.1X related events in System logs
+  - Correlates events with target IP/MAC addresses
+  - Flags authentication issues for ISE troubleshooting
+
+- ✅ **DNS and DHCP Lease Error Detection**
+  - Performs reverse DNS lookup validation
+  - Checks local DHCP server leases (if available)
+  - Tests basic network connectivity via ping
+  - Identifies DNS resolution failures and DHCP lease issues
+
+- ✅ **Client Health Metrics Analysis**
+  - Measures network latency (average, min, max)
+  - Analyzes network adapter statistics (if local machine)
+  - Detects high latency and connectivity issues
+  - Provides baseline performance metrics
+
+- ✅ **Mist API Integration** (Optional)
+  - Integrates with existing Python Mist API client
+  - Searches for target device in Mist system
+  - Retrieves device information when available
+  - Gracefully handles missing API credentials
+
+**Script Output Logic**:
+- ✅ Authentication failures detected → "Due to detected authentication/authorization failures, troubleshoot on ISE."
+- ✅ DNS/DHCP errors detected → "Due to detected DNS/DHCP lease errors, check network infrastructure (LAN, WAN, DHCP, DNS)."
+- ✅ Client health issues detected → "Client health metric issue detected; refer to manual troubleshooting workflow."
+- ✅ No issues detected → "All automated checks look good; proceed with manual troubleshooting steps as needed."
+
+**Manual Troubleshooting Boundary**:
+The script clearly defines the boundary between automated and manual troubleshooting steps:
+- ✅ Automated: Authentication logs, DNS/DHCP basic checks, client health metrics
+- 🔧 Manual: ISE troubleshooting, network infrastructure analysis, AP performance assessment, hardware checks, RF environment analysis
+
+**Usage Examples**:
+
+*Python Script (Recommended):*
+```bash
+# Basic usage
+python scripts/automated_network_troubleshooting.py --ip 192.168.1.100 --mac AA:BB:CC:DD:EE:FF
+
+# With custom log path
+python scripts/automated_network_troubleshooting.py --ip 10.0.1.50 --mac 00:11:22:33:44:55 --log-path ./custom.log
+
+# JSON output for automation
+python scripts/automated_network_troubleshooting.py --ip 172.16.1.25 --mac 12:34:56:78:9A:BC --json
+```
+
+*Python Module Usage:*
+```python
+from scripts.automated_network_troubleshooting import NetworkTroubleshooter
+
+troubleshooter = NetworkTroubleshooter(
+    ip_address="192.168.1.100",
+    mac_address="AA:BB:CC:DD:EE:FF"
+)
+result = troubleshooter.run_full_analysis()
+print(f"Issues found: {len(result.issues_detected)}")
+```
+
+**Deliverables**:
+- ✅ Complete Python troubleshooting script with cross-platform compatibility
+- ✅ Comprehensive Mist API integration examples
+- ✅ Integration with existing Python API infrastructure
+- ✅ JSON output support for automation workflows
+- ✅ Comprehensive logging and reporting system
+- ✅ Clear boundary definition for manual vs automated steps
+- ✅ Input validation and error handling
+- ✅ Both command-line and module usage patterns
 
 ### Phase 2: Core Monitoring Components 🔧 READY FOR DEVELOPMENT
 
@@ -276,15 +378,17 @@ network_automation_mist/
 |-------|----------|------------------|--------|
 | Phase 1 | Weeks 1-2 | Project setup, authentication module | ✅ **COMPLETE** |
 | Phase 1.5 | Week 3 | API foundation layer, testing | ✅ **COMPLETE** |
-| Phase 2 | Weeks 4-5 | Core monitoring components | 🔧 **READY** |
-| Phase 3 | Weeks 6-7 | Health metrics and performance monitoring | ⏳ Planned |
-| Phase 4 | Weeks 8-9 | Advanced analysis and troubleshooting | ⏳ Planned |
-| Phase 5 | Weeks 10-11 | Automation and alerting systems | ⏳ Planned |
-| Phase 6 | Weeks 12-13 | Dashboard, testing, and documentation | ⏳ Planned |
+| Phase 1.75 | Week 4 | Python automated troubleshooting script | ✅ **COMPLETE** |
+| Phase 2 | Weeks 5-6 | Core monitoring components | 🔧 **READY** |
+| Phase 3 | Weeks 7-8 | Health metrics and performance monitoring | ⏳ Planned |
+| Phase 4 | Weeks 9-10 | Advanced analysis and troubleshooting | ⏳ Planned |
+| Phase 5 | Weeks 11-12 | Automation and alerting systems | ⏳ Planned |
+| Phase 6 | Weeks 13-14 | Dashboard, testing, and documentation | ⏳ Planned |
 
-### Current Status (August 2025)
+### Current Status (September 2025)
 - **✅ Phase 1 COMPLETE**: Full project setup, environment, dependencies, documentation
 - **✅ Phase 1.5 COMPLETE**: Authentication system, API client, 18 unit tests, examples
+- **✅ Phase 1.75 COMPLETE**: Python automated troubleshooting script with comprehensive Mist API integration
 - **🔧 Phase 2 READY**: Foundation ready for monitoring module development
 - **🚀 Next Priority**: Implement network monitoring components using existing API client
 
