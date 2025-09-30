@@ -14,7 +14,7 @@ A comprehensive network automation platform built around Mist API integration fo
 ### ✅ Implemented
 - **Authentication System** (`src/auth/`) - Secure Mist API authentication with token management
 - **API Client Library** (`src/api/`) - High-level network operations client
-- **Mist Wireless Troubleshooter** (`src/troubleshooting/`) - ✨ **NEW!** Complete flowchart-based wireless troubleshooting
+- **Mist Wireless Troubleshooter** (`src/troubleshooting/`) - Complete flowchart-based wireless troubleshooting (Core Module)
 - **Unified CLI Interface** (`office_automation_cli.py`) - Comprehensive command-line interface
 - **Testing Suite** (`tests/`) - Authentication unit tests
 - **Example Scripts** (`examples/`) - Real-world usage demonstrations
@@ -25,18 +25,18 @@ A comprehensive network automation platform built around Mist API integration fo
 - **Alert Management** (`src/alerts/`) - Notification and escalation systems
 - **Web Dashboard** (`src/dashboard/`) - Visual network management interface
 
-See `NETWORK_AUTOMATION_PLAN.md` for detailed technical documentation.
+See `docs/project-overview.md` for detailed technical documentation, `MIST_TROUBLESHOOTER_CORE_MODULE.md` for core module details, and `docs/output-examples.md` for sample troubleshooting outputs.
 
-## 📶 Mist Wireless Troubleshooting (Featured Module)
+## 📶 Mist Wireless Network Troubleshooter (Core Module)
 
-The integrated Mist Wireless Troubleshooter provides comprehensive, flowchart-based diagnosis of wireless client connectivity issues.
+The Office Automation Project's built-in Mist Wireless Network Troubleshooter provides comprehensive, flowchart-based diagnosis of wireless client connectivity issues.
 
 ### 🎯 Key Features
 - **Complete Flowchart Implementation**: Follows exact troubleshooting decision tree
 - **Smart Escalation Paths**: Automatic routing to appropriate troubleshooting teams
 - **Priority-Based Classification**: Issues categorized as HIGH/MEDIUM/LOW severity
 - **Comprehensive Analysis**: Client health, AP hardware, RF environment, infrastructure checks
-- **Integration Ready**: Uses existing Office Automation auth system
+- **Native Implementation**: Built on Office Automation's auth and API infrastructure
 
 ### 🔍 Troubleshooting Flow
 1. **Client Association Status & Events** - Validates client presence and recent activity
@@ -63,7 +63,7 @@ python office_automation_cli.py wireless troubleshoot \
 ### 📊 Sample Output
 ```
 ======================================================================
-MIST WIRELESS NETWORK TROUBLESHOOTING (Office Automation Integration)
+MIST WIRELESS NETWORK TROUBLESHOOTER
 ======================================================================
 🔍 [STEP 1] Gathering Client Association Status & Events...
 ✅ Client found: TestDevice on AP ac:12:34:56:78:90
@@ -81,6 +81,9 @@ MIST WIRELESS NETWORK TROUBLESHOOTING (Office Automation Integration)
 
 🎯 COMPREHENSIVE TROUBLESHOOTING COMPLETE
    Issues found: 3 (0 HIGH, 3 MEDIUM)
+
+📁 Detailed logs saved to: logs/troubleshooting-20250930-213045.log
+======================================================================
 ```
 
 ## Getting Started
@@ -209,7 +212,9 @@ office-automation-project/
 ├── LICENSE                            # MIT license
 ├── config/                            # Configuration files
 ├── data/                              # Data storage directory
-├── logs/                              # Application logs
+├── logs/                              # 📝 Troubleshooting and application logs
+│   ├── README.md                      # Logs documentation
+│   └── troubleshooting-*.log          # Auto-generated troubleshooting logs
 ├── docs/                              # Additional documentation
 ├── examples/                          # Usage examples
 │   ├── auth_example.py                # Basic authentication demo
@@ -226,9 +231,9 @@ office-automation-project/
 │   ├── config/                        # ✅ Configuration management
 │   │   ├── __init__.py
 │   │   └── auth_config.py             # Authentication configuration
-│   ├── troubleshooting/               # ✨ ✅ Mist Wireless Troubleshooting (NEW!)
+│   ├── troubleshooting/               # ✅ Mist Wireless Network Troubleshooter (Core Module)
 │   │   ├── __init__.py                # Module exports
-│   │   └── mist_wireless.py           # Complete wireless troubleshooting (771 lines)
+│   │   └── mist_wireless.py           # Complete wireless troubleshooting (766 lines)
 │   ├── monitoring/                    # 🔧 Network monitoring (ready for development)
 │   │   └── __init__.py
 │   ├── alerts/                        # 🔧 Alert management (ready for development)

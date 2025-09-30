@@ -175,6 +175,11 @@ def cmd_troubleshoot_wireless(args):
                 for i, rec in enumerate(results['recommendations'], 1):
                     print(f"  {i}. {rec}")
             
+            # Display log file path if logging is enabled
+            if hasattr(troubleshooter, 'log_file') and troubleshooter.log_file:
+                print(f"\n📁 Detailed logs saved to: {troubleshooter.log_file}")
+                print(f"{'='*70}")
+            
             # Return appropriate exit code
             if results['status'] in ['error']:
                 return 1

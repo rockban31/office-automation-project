@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Mist Wireless Network Troubleshooter - Integrated Module
+Mist Wireless Network Troubleshooter - Core Module
 
 Complete flowchart-based troubleshooting solution for Mist wireless network connectivity issues.
-This module is integrated with the Office Automation Project's authentication system.
+This is a core module of the Office Automation Project, built on the project's authentication
+and API infrastructure to provide comprehensive wireless network troubleshooting capabilities.
 """
 
 import os
@@ -12,6 +13,8 @@ import socket
 import statistics
 import time
 import re
+import logging
+import json
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Union
 import ipaddress
@@ -21,19 +24,23 @@ from ..auth.mist_auth import MistAuth, MistAuthError
 
 class MistWirelessTroubleshooter:
     """
-    Mist Wireless Network Troubleshooter
+    Mist Wireless Network Troubleshooter - Core Module
     
     Implements complete flowchart-based troubleshooting workflow for wireless client
-    connectivity issues using the Office Automation Project's authentication system.
+    connectivity issues. This core module leverages the Office Automation Project's
+    authentication and API infrastructure for comprehensive network troubleshooting.
     """
     
-    def __init__(self, auth_instance: Optional[MistAuth] = None, org_id: Optional[str] = None):
+    def __init__(self, auth_instance: Optional[MistAuth] = None, org_id: Optional[str] = None, 
+                 enable_logging: bool = True, log_file: Optional[str] = None):
         """
         Initialize the troubleshooter with existing auth or create new instance.
         
         Args:
             auth_instance: Existing MistAuth instance (optional)
             org_id: Organization ID (optional, will auto-detect if not provided)
+            enable_logging: Enable detailed logging to file (default: True)
+            log_file: Custom log file path (optional, will auto-generate if not provided)
         """
         if auth_instance:
             self.auth = auth_instance
@@ -43,8 +50,65 @@ class MistWirelessTroubleshooter:
             self.org_id = org_id or self.auth.org_id
         
         self.base_url = self.auth.base_url
+        self.enable_logging = enable_logging
+        self.log_file = log_file
+        self.logger = self._setup_logging() if enable_logging else None
     
-    def make_api_request(self, endpoint: str, method: str = 'GET', 
+    def _setup_logging(self) -> logging.Logger:
+        """Set up logging configuration for troubleshooting session"""
+        # Generate log filename if not provided
+        if not self.log_file:
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            # Get project root directory
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            logs_dir = os.path.join(project_root, 'logs')
+            
+            # Ensure logs directory exists
+            os.makedirs(logs_dir, exist_ok=True)
+            
+            self.log_file = os.path.join(logs_dir, f'troubleshooting-{timestamp}.log')
+        
+        # Create logger
+        logger = logging.getLogger(f'mist_troubleshooter_{id(self)}')
+        logger.setLevel(logging.INFO)
+        
+        # Remove existing handlers to avoid duplicates
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
+        
+        # Create file handler
+        file_handler = logging.FileHandler(self.log_file, mode='w', encoding='utf-8')
+        file_handler.setLevel(logging.INFO)
+        
+        # Create formatter
+        formatter = logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        file_handler.setFormatter(formatter)
+        
+        logger.addHandler(file_handler)
+        
+        # Log session start
+        logger.info("=" * 60)
+        logger.info("MIST WIRELESS NETWORK TROUBLESHOOTING SESSION STARTED")
+        logger.info("=" * 60)
+        logger.info(f"Organization ID: {self.org_id}")
+        logger.info(f"Log file: {self.log_file}")
+        
+        return logger
+    
+    def log(self, message: str, level: str = 'INFO'):
+        """Log message to file if logging is enabled"""
+        if self.logger:
+            if level.upper() == 'ERROR':
+                self.logger.error(message)
+            elif level.upper() == 'WARNING':
+                self.logger.warning(message)
+            else:
+                self.logger.info(message)
+    
+    def make_api_request(self, endpoint: str, method: str = 'GET',
                         params: Optional[Dict[str, Any]] = None,
                         json_data: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         """Make API request using the integrated auth system"""
@@ -547,30 +611,44 @@ class MistWirelessTroubleshooter:
         }
         
         print(f"\n{'='*70}")
-        print(f"MIST WIRELESS NETWORK TROUBLESHOOTING (Office Automation Integration)")
+        print(f"MIST WIRELESS NETWORK TROUBLESHOOTER")
         print(f"{'='*70}")
         print(f"Client IP: {client_ip}")
         print(f"Client MAC: {client_mac}")
+        if self.enable_logging and self.log_file:
+            print(f"📝 Log File: {self.log_file}")
         print(f"Analysis Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Organization: {self.org_id}")
         print(f"{'='*70}")
         
+        # Log session details
+        self.log(f"Troubleshooting session started for client {client_mac} ({client_ip})")
+        self.log(f"Hours back for analysis: {hours_back}")
+        
         try:
             # STEP 1: Get Client Association Status & Events (INPUT)
             print(f"\n🔍 [STEP 1] Gathering Client Association Status & Events...")
+            self.log("STEP 1: Starting client association status and events check")
             client_info = self.get_client_info(client_mac)
             
             if not client_info:
-                print(f"❌ ERROR: Client {client_mac} not found in Mist database")
+                error_msg = f"Client {client_mac} not found in Mist database"
+                print(f"❌ ERROR: {error_msg}")
+                self.log(f"ERROR: {error_msg}", 'ERROR')
                 results['status'] = 'error'
                 results['recommendations'] = [
                     "Verify client MAC address format",
                     "Check if client is connected to this Mist organization",
                     "Ensure API token has proper permissions"
                 ]
+                self.log("Session ended with error - client not found")
                 return results
             
-            print(f"✅ Client found: {client_info.get('hostname', 'Unknown')} on AP {client_info.get('ap_mac', 'Unknown')}")
+            client_name = client_info.get('hostname', 'Unknown')
+            ap_mac = client_info.get('ap_mac', 'Unknown')
+            print(f"✅ Client found: {client_name} on AP {ap_mac}")
+            self.log(f"Client found: {client_name} (MAC: {client_mac}) connected to AP {ap_mac}")
+            self.log(f"Client details: RSSI={client_info.get('rssi')}, SNR={client_info.get('snr')}, IP={client_ip}")
             results['steps_completed'].append('client_association_check')
             
             # Get client events for analysis
@@ -578,12 +656,15 @@ class MistWirelessTroubleshooter:
             
             # STEP 2: Check Authentication and Authorization Failure Logs
             print(f"\n🔍 [STEP 2] Checking Authentication and Authorization Failure Logs...")
+            self.log("STEP 2: Starting authentication and authorization failure analysis")
             auth_issues = self.analyze_auth_issues(events.get('results', []) if events else [])
             
             if auth_issues:
                 print(f"\n🔴 AUTHENTICATION/AUTHORIZATION ISSUES DETECTED:")
+                self.log(f"Authentication issues detected: {len(auth_issues)} issues found", 'WARNING')
                 for issue in auth_issues[-3:]:  # Show last 3 issues
                     print(f"   • {issue['type']}: {issue['reason']} ({issue.get('details', '')})")
+                    self.log(f"Auth issue: {issue['type']} - {issue['reason']} - {issue.get('details', '')}", 'WARNING')
                 
                 results['status'] = 'authentication_issues'
                 results['escalation_path'] = 'troubleshoot_on_ise'
@@ -598,9 +679,11 @@ class MistWirelessTroubleshooter:
                 
                 print(f"\n📋 FLOWCHART DECISION: Authentication/Authorization Failure → Troubleshoot on ISE")
                 print(f"\n🎯 ESCALATION: Route to Network Security / Identity Management team")
+                self.log("Session ended with escalation to Network Security team for authentication issues")
                 return results
             
             print(f"✅ No authentication/authorization issues detected")
+            self.log("STEP 2 completed: No authentication/authorization issues detected")
             results['steps_completed'].append('authentication_check')
             
             # STEP 3: Check DNS/DHCP Lease Errors
@@ -765,7 +848,20 @@ class MistWirelessTroubleshooter:
         """Context manager entry"""
         return self
     
+    def close_logging(self):
+        """Close logging session"""
+        if self.logger:
+            self.log("=" * 60)
+            self.log("TROUBLESHOOTING SESSION ENDED")
+            self.log("=" * 60)
+            
+            # Close all handlers
+            for handler in self.logger.handlers[:]:
+                handler.close()
+                self.logger.removeHandler(handler)
+    
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit"""
+        self.close_logging()
         if hasattr(self, 'auth') and self.auth:
             self.auth.close()

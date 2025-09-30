@@ -71,8 +71,10 @@ dmypy.json
 ehthumbs.db
 Thumbs.db
 
-# Logs
-logs/
+# Log files (but keep logs directory structure)
+logs/*.log
+logs/*.txt
+logs/troubleshooting-*
 *.log
 
 # Database files
