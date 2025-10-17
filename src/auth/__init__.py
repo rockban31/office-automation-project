@@ -1,8 +1,5 @@
 """
-Authentication module for Mist API integration.
-
-This module provides authentication and authorization capabilities for the Mist API,
-including API token management, session handling, and secure credential storage.
+Authentication package for Mist API.
 """
 
 from .mist_auth import MistAuth, MistAuthError, MistRateLimitError
