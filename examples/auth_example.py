@@ -52,10 +52,6 @@ def main():
         
         if connection_status['status'] == 'connected':
             print("✓ Connection successful!")
-            user_info = connection_status['user_info']
-            print(f"  User: {user_info.get('email', 'Unknown')}")
-            print(f"  Name: {user_info.get('first_name', '')} {user_info.get('last_name', '')}")
-            print(f"  Rate Limit Remaining: {connection_status['rate_limit_remaining']}")
             print()
             
             # Get organization information
@@ -77,23 +73,6 @@ def main():
                 print(f"  ... and {len(orgs) - 5} more")
             print()
             
-            # Example API calls
-            print("5. Example API calls...")
-            
-            # Get sites (if org_id is set)
-            if auth.org_id:
-                try:
-                    sites = auth.make_request('/orgs/{org_id}/sites')
-                    print(f"✓ Found {len(sites)} sites in organization")
-                except Exception as e:
-                    print(f"⚠ Could not fetch sites: {e}")
-            
-            # Get user privileges
-            try:
-                privileges = auth.make_request('/self/privileges')
-                print(f"✓ User has {len(privileges)} privileges")
-            except Exception as e:
-                print(f"⚠ Could not fetch privileges: {e}")
             
         else:
             print("✗ Connection failed!")

@@ -62,12 +62,19 @@ class MistAuth:
         
         # Extract host from base_url for mistapi
         if base_url:
-            # Convert https://api.mist.com/api/v1 to api.mist.com
+            # Convert https://api.eu.mist.com/api/v1 to api.eu.mist.com
             import urllib.parse
-            parsed = urllib.parse.urlparse(base_url or os.getenv('MIST_BASE_URL', 'https://api.mist.com/api/v1'))
+            parsed = urllib.parse.urlparse(base_url)
             self.host = parsed.netloc
         else:
-            self.host = os.getenv('MIST_HOST', 'api.mist.com')
+            # Use environment variables or default
+            env_base_url = os.getenv('MIST_BASE_URL')
+            if env_base_url:
+                import urllib.parse
+                parsed = urllib.parse.urlparse(env_base_url)
+                self.host = parsed.netloc
+            else:
+                self.host = os.getenv('MIST_HOST', 'api.mist.com')
         
         # For backward compatibility
         self.base_url = f"https://{self.host}/api/v1"
@@ -139,6 +146,10 @@ class MistAuth:
             if '{org_id}' in endpoint and self.org_id:
                 endpoint = endpoint.replace('{org_id}', self.org_id)
             
+            # Ensure endpoint starts with /api/v1
+            if not endpoint.startswith('/api/v1'):
+                endpoint = f'/api/v1{endpoint}' if endpoint.startswith('/') else f'/api/v1/{endpoint}'
+            
             # Use mistapi methods based on HTTP method
             if method.upper() == 'GET':
                 response = self.session.mist_get(endpoint, query=params)
@@ -166,8 +177,25 @@ class MistAuth:
         Returns:
             List of organization dictionaries
         """
-        response = mistapi.api.v1.orgs.listOrgs(self.session)
-        return self._get_mistapi_response_data(response)
+        # Get user self information which includes accessible organizations
+        response = mistapi.api.v1.self.self.getSelf(self.session)
+        user_data = self._get_mistapi_response_data(response)
+        
+        # Extract organizations from user data
+        orgs = []
+        if 'privileges' in user_data:
+            seen_org_ids = set()
+            for privilege in user_data['privileges']:
+                if 'org_id' in privilege and privilege['org_id'] not in seen_org_ids:
+                    org_info = {
+                        'id': privilege['org_id'],
+                        'name': privilege.get('org_name', 'Unknown'),
+                        'role': privilege.get('role', 'Unknown')
+                    }
+                    orgs.append(org_info)
+                    seen_org_ids.add(privilege['org_id'])
+        
+        return orgs
     
     def get_organization_info(self, org_id: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -183,7 +211,7 @@ class MistAuth:
         if not org_id:
             raise MistAuthError("Organization ID must be provided")
         
-        response = mistapi.api.v1.orgs.getOrg(self.session, org_id)
+        response = mistapi.api.v1.orgs.orgs.getOrg(self.session, org_id)
         return self._get_mistapi_response_data(response)
     
     def test_connection(self) -> Dict[str, Any]:
