@@ -48,8 +48,13 @@ def cmd_test_auth(args):
             
             if status['status'] == 'connected':
                 print(f"✅ Authentication successful!")
-                print(f"   User: {status['user_info'].get('first_name', '')} {status['user_info'].get('last_name', '')}")
-                print(f"   Email: {status['user_info'].get('email', 'Unknown')}")
+                user_name = status['user_info'].get('name', 'Unknown')
+                print(f"   User: {user_name}")
+                
+                # Show user privileges/roles
+                privileges = status['user_info'].get('privileges', [])
+                if privileges:
+                    print(f"   Access: {len(privileges)} organization(s)")
                 
                 if status['org_info']:
                     print(f"   Organization: {status['org_info'].get('name', 'Unknown')}")
@@ -90,10 +95,10 @@ def cmd_list_orgs(args):
                 for i, org in enumerate(orgs, 1):
                     print(f"{i:2}. Name: {org['name']}")
                     print(f"    ID: {org['id']}")
-                    print(f"    Type: {org.get('orgtype', 'Unknown')}")
+                    print(f"    Role: {org.get('role', 'Unknown')}")
+                    print(f"    Scope: {org.get('scope', 'Unknown')}")
                     if args.verbose:
-                        print(f"    Created: {org.get('created_time', 'Unknown')}")
-                        print(f"    Modified: {org.get('modified_time', 'Unknown')}")
+                        print(f"    Access Level: {org.get('role', 'Unknown')} access to {org.get('scope', 'Unknown')}")
                     print("-" * 60)
                 
                 print(f"\n💡 TIP: Set MIST_ORG_ID environment variable to skip org selection:")

@@ -189,8 +189,9 @@ class MistAuth:
                 if 'org_id' in privilege and privilege['org_id'] not in seen_org_ids:
                     org_info = {
                         'id': privilege['org_id'],
-                        'name': privilege.get('org_name', 'Unknown'),
-                        'role': privilege.get('role', 'Unknown')
+                        'name': privilege.get('name', 'Unknown'),
+                        'role': privilege.get('role', 'Unknown'),
+                        'scope': privilege.get('scope', 'Unknown')
                     }
                     orgs.append(org_info)
                     seen_org_ids.add(privilege['org_id'])
