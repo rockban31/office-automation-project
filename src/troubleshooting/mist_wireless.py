@@ -137,8 +137,6 @@ class MistWirelessTroubleshooter:
     def get_client_info(self, mac_address: str, hours_back: int = 24) -> Optional[Dict[str, Any]]:
         """Get client information and current session"""
         # First, try to get currently connected client from all sites (live data with RSSI/SNR)
-        print("   Searching for currently connected client...")
-        
         # Get all sites in organization
         sites = self.make_api_request(f"/orgs/{self.org_id}/sites")
         if sites and isinstance(sites, list):
@@ -154,7 +152,6 @@ class MistWirelessTroubleshooter:
                         for client in clients:
                             client_mac = client.get('mac', '').lower().replace(':', '').replace('-', '')
                             if client_mac == search_mac:
-                                print(f"   ✅ Found in site: {site.get('name')}")
                                 # Add site info to client data
                                 client['site_id'] = site_id
                                 client['site_name'] = site.get('name')
@@ -162,14 +159,12 @@ class MistWirelessTroubleshooter:
                                 # Fetch and add AP name
                                 ap_mac = client.get('ap_mac')
                                 if ap_mac:
-                                    print(f"   Fetching AP name for {ap_mac}...")
                                     ap_name = self.get_ap_name(site_id, ap_mac)
                                     client['ap_name'] = ap_name
                                 
                                 return client
         
         # If not currently connected, search historical data
-        print("   Not currently connected, searching historical data...")
         end_time = int(time.time())
         start_time = end_time - (hours_back * 3600)
         
