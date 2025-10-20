@@ -118,6 +118,22 @@ class MistWirelessTroubleshooter:
             print(f"API request failed: {e}")
             return None
     
+    def get_ap_name(self, site_id: str, ap_mac: str) -> str:
+        """Get AP name/hostname from MAC address"""
+        try:
+            # Get all devices for the site
+            devices = self.make_api_request(f"/sites/{site_id}/devices")
+            if devices and isinstance(devices, list):
+                # Normalize MAC for comparison
+                search_mac = ap_mac.lower().replace(':', '').replace('-', '')
+                for device in devices:
+                    device_mac = device.get('mac', '').lower().replace(':', '').replace('-', '')
+                    if device_mac == search_mac and device.get('type') == 'ap':
+                        return device.get('name', 'Unknown')
+        except Exception as e:
+            self.log(f"Failed to get AP name for {ap_mac}: {e}", 'WARNING')
+        return 'Unknown'
+    
     def get_client_info(self, mac_address: str, hours_back: int = 24) -> Optional[Dict[str, Any]]:
         """Get client information and current session"""
         # First, try to get currently connected client from all sites (live data with RSSI/SNR)
@@ -142,6 +158,14 @@ class MistWirelessTroubleshooter:
                                 # Add site info to client data
                                 client['site_id'] = site_id
                                 client['site_name'] = site.get('name')
+                                
+                                # Fetch and add AP name
+                                ap_mac = client.get('ap_mac')
+                                if ap_mac:
+                                    print(f"   Fetching AP name for {ap_mac}...")
+                                    ap_name = self.get_ap_name(site_id, ap_mac)
+                                    client['ap_name'] = ap_name
+                                
                                 return client
         
         # If not currently connected, search historical data
