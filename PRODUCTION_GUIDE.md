@@ -127,6 +127,92 @@ python office_automation_cli.py auth test
 - API rate limit: Respects Mist API quotas
 - Concurrent analysis: Supported for multiple clients
 
+## 🔧 Common Issues & Solutions
+
+### Issue: "Connected to AP Unknown" or "RSSI=N/A, SNR=N/A"
+
+**Cause:** Client data is incomplete because:
+- Client is not currently connected
+- Client hasn't been active in the search time range
+- Client disconnected recently
+
+**Solutions:**
+
+1. **Verify client is connected:**
+```bash
+# Check if client is currently on the network
+# You can verify in Mist dashboard first
+```
+
+2. **Increase search time range:**
+```bash
+# Search last 48 hours instead of default 24
+python office_automation_cli.py wireless troubleshoot --client-mac <MAC> --client-ip <IP> --hours-back 48
+
+# Search last week (168 hours)
+python office_automation_cli.py wireless troubleshoot --client-mac <MAC> --client-ip <IP> --hours-back 168
+```
+
+3. **Get real-time connected clients:**
+```bash
+# First, list currently connected clients in Mist dashboard
+# Then troubleshoot with the exact MAC address shown
+```
+
+### Issue: "Client not found in Mist database"
+
+**Cause:** 
+- Incorrect MAC address format
+- Client never connected to this organization
+- Insufficient API permissions
+
+**Solutions:**
+
+1. **Check MAC address format:**
+```bash
+# Use colon-separated format: aa:bb:cc:dd:ee:ff
+# Not: aa-bb-cc-dd-ee-ff or aabbccddeeff
+```
+
+2. **Verify organization:**
+```bash
+# Check which organization you're using
+python office_automation_cli.py auth test
+```
+
+3. **Test with known client:**
+```bash
+# Use a client you can see in Mist dashboard right now
+```
+
+### Issue: "API request failed"
+
+**Cause:**
+- Invalid API token
+- Network connectivity issues  
+- API rate limit exceeded
+
+**Solutions:**
+
+1. **Test authentication:**
+```bash
+python office_automation_cli.py auth test
+```
+
+2. **Check .env file:**
+```bash
+# Verify your .env file has:
+# MIST_API_TOKEN=<your_token>
+# MIST_ORG_ID=<your_org_id>
+# MIST_BASE_URL=https://api.eu.mist.com/api/v1  (or your region)
+```
+
+3. **Check network:**
+```bash
+# Test connectivity to Mist cloud
+Test-NetConnection api.eu.mist.com -Port 443
+```
+
 ## ✅ Production Checklist
 
 - [ ] `.env` file configured with valid API token

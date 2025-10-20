@@ -118,17 +118,33 @@ class MistWirelessTroubleshooter:
             print(f"API request failed: {e}")
             return None
     
-    def get_client_info(self, mac_address: str) -> Optional[Dict[str, Any]]:
+    def get_client_info(self, mac_address: str, hours_back: int = 24) -> Optional[Dict[str, Any]]:
         """Get client information and current session"""
+        # Add time range to search (default: last 24 hours)
+        end_time = int(time.time())
+        start_time = end_time - (hours_back * 3600)
+        
         endpoint = f"/orgs/{self.org_id}/clients/search"
         params = {
             "mac": mac_address,
-            "limit": 1
+            "limit": 1,
+            "start": start_time,
+            "end": end_time
         }
         
         result = self.make_api_request(endpoint, params=params)
         if result and result.get('results'):
             return result['results'][0]
+        
+        # If not found in search, try getting currently connected clients
+        print("   Searching in currently connected clients...")
+        endpoint = f"/orgs/{self.org_id}/stats/clients"
+        params = {"mac": mac_address}
+        
+        result = self.make_api_request(endpoint, params=params)
+        if result and isinstance(result, list) and len(result) > 0:
+            return result[0]
+        
         return None
     
     def get_client_events(self, mac_address: str, hours_back: int = 24) -> Optional[Dict[str, Any]]:
@@ -629,7 +645,7 @@ class MistWirelessTroubleshooter:
             # STEP 1: Get Client Association Status & Events (INPUT)
             print(f"\n🔍 [STEP 1] Gathering Client Association Status & Events...")
             self.log("STEP 1: Starting client association status and events check")
-            client_info = self.get_client_info(client_mac)
+            client_info = self.get_client_info(client_mac, hours_back=hours_back)
             
             if not client_info:
                 error_msg = f"Client {client_mac} not found in Mist database"
@@ -644,11 +660,34 @@ class MistWirelessTroubleshooter:
                 self.log("Session ended with error - client not found")
                 return results
             
-            client_name = client_info.get('hostname', 'Unknown')
-            ap_mac = client_info.get('ap_mac', 'Unknown')
-            print(f"✅ Client found: {client_name} on AP {ap_mac}")
-            self.log(f"Client found: {client_name} (MAC: {client_mac}) connected to AP {ap_mac}")
-            self.log(f"Client details: RSSI={client_info.get('rssi')}, SNR={client_info.get('snr')}, IP={client_ip}")
+            client_name = client_info.get('hostname') or client_info.get('username') or 'Unknown'
+            ap_mac = client_info.get('ap_mac') or client_info.get('ap_id') or 'Unknown'
+            ap_name = client_info.get('ap_name', 'Unknown') if ap_mac != 'Unknown' else 'Unknown'
+            
+            # Display client and AP info
+            if ap_mac != 'Unknown':
+                print(f"✅ Client found: {client_name} connected to AP {ap_name} ({ap_mac})")
+            else:
+                print(f"✅ Client found: {client_name} (not currently connected to any AP)")
+            
+            # Get and display client details
+            rssi = client_info.get('rssi')
+            snr = client_info.get('snr')
+            ip_addr = client_info.get('ip') or client_ip
+            
+            print(f"   Client details: RSSI={rssi if rssi else 'N/A'}, SNR={snr if snr else 'N/A'}, IP={ip_addr}")
+            
+            # Warn if critical data is missing
+            if not rssi or not snr or ap_mac == 'Unknown':
+                print(f"\n⚠️  WARNING: Incomplete client data - client may not be currently connected")
+                print(f"   This may limit the depth of analysis. Try:")
+                print(f"   1. Verify the client MAC address is correct")
+                print(f"   2. Ensure the client is currently connected to the network")
+                print(f"   3. Increase the search time range with --hours-back parameter")
+                self.log("WARNING: Incomplete client data detected", 'WARNING')
+            
+            self.log(f"Client found: {client_name} (MAC: {client_mac}) connected to AP {ap_name} ({ap_mac})")
+            self.log(f"Client details: RSSI={rssi}, SNR={snr}, IP={ip_addr}")
             results['steps_completed'].append('client_association_check')
             
             # Get client events for analysis
