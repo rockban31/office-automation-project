@@ -248,7 +248,7 @@ Result: ✅ All health metrics within normal ranges!
 Run the demonstration script:
 
 ```bash
-python test_health_metrics.py
+python examples/health_metrics_demo.py
 ```
 
 Or run full troubleshooting:
