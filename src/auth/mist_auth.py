@@ -5,15 +5,30 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 
-import mistapi
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging BEFORE importing mistapi to suppress debug output
+logging.basicConfig(
+    level=logging.WARNING,
+    format='%(levelname)s: %(message)s'  # Simplified format
+)
+
+import mistapi
+
+# Aggressively suppress mistapi library verbose logging AFTER import
+for logger_name in ['mistapi', 'mistapi.apisession', 'mistapi.apirequest', 'mistapi.apiresponse']:
+    mistapi_logger = logging.getLogger(logger_name)
+    mistapi_logger.setLevel(logging.CRITICAL)  # Only show critical errors
+    mistapi_logger.propagate = False  # Don't propagate to root logger
+    # Remove all handlers
+    mistapi_logger.handlers = []
+
+# Set up our own logger
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 class MistAuthError(Exception):
     """Custom exception for Mist authentication errors."""
