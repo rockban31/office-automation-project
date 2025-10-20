@@ -323,9 +323,14 @@ class MistWirelessTroubleshooter:
         ap_stats = self.get_ap_stats(site_id, ap_mac)
         
         if not ap_stats:
+            self.log(f"AP stats not available for {ap_mac} (API limitation)", 'INFO')
             return None
         
-        uptime = ap_stats.get('uptime', 0)
+        uptime = ap_stats.get('uptime')
+        if not uptime:
+            self.log(f"AP uptime not available in stats for {ap_mac}", 'INFO')
+            return None
+        
         uptime_hours = uptime / 3600
         
         # Suggest reboot if uptime is very high (>30 days) or very low (<1 hour, indicating recent issues)
@@ -504,11 +509,8 @@ class MistWirelessTroubleshooter:
         # Get AP device info
         ap_info = self.get_ap_info(site_id, ap_mac)
         if not ap_info:
-            hardware_issues.append({
-                'component': 'AP Communication',
-                'issue': f'Unable to retrieve AP {ap_mac} information',
-                'severity': 'HIGH'
-            })
+            print(f"   ⚠️  AP hardware stats not available (API limitation)")
+            self.log(f"AP hardware stats not available for {ap_mac} (API limitation)", 'INFO')
             return hardware_issues
         
         # Check AP status
@@ -535,7 +537,7 @@ class MistWirelessTroubleshooter:
         ap_stats = self.get_ap_stats(site_id, ap_mac)
         if ap_stats:
             # Check memory utilization
-            memory_usage = ap_stats.get('memory_usage')
+            memory_usage = ap_stats.get('memory_usage') or ap_stats.get('mem_used_kb')
             if memory_usage and memory_usage > 85:
                 hardware_issues.append({
                     'component': 'Memory',
@@ -544,7 +546,7 @@ class MistWirelessTroubleshooter:
                 })
             
             # Check CPU utilization
-            cpu_usage = ap_stats.get('cpu_usage')
+            cpu_usage = ap_stats.get('cpu_usage') or ap_stats.get('cpu')
             if cpu_usage and cpu_usage > 80:
                 hardware_issues.append({
                     'component': 'CPU',
@@ -553,13 +555,16 @@ class MistWirelessTroubleshooter:
                 })
             
             # Check temperature if available
-            temperature = ap_stats.get('temperature')
+            temperature = ap_stats.get('temperature') or ap_stats.get('temp')
             if temperature and temperature > 70:
                 hardware_issues.append({
                     'component': 'Temperature',
                     'issue': f'High temperature: {temperature}°C (should be < 70°C)',
                     'severity': 'HIGH' if temperature > 80 else 'MEDIUM'
                 })
+        else:
+            print(f"   ⚠️  AP stats not available (API limitation)")
+            self.log(f"AP stats not available for {ap_mac} (API limitation)", 'INFO')
         
         return hardware_issues
     
@@ -572,12 +577,10 @@ class MistWirelessTroubleshooter:
         # Get AP radio statistics
         ap_stats = self.get_ap_stats(site_id, ap_mac)
         if not ap_stats:
-            rf_issues.append({
-                'component': 'RF Analysis',
-                'issue': 'Unable to retrieve AP radio statistics',
-                'severity': 'MEDIUM'
-            })
-            return rf_issues
+            print(f"   ⚠️  RF stats not available (API limitation)")
+            self.log(f"RF stats not available for {ap_mac} (API limitation)", 'INFO')
+            # Still analyze client-side RF metrics below
+            ap_stats = {}
         
         # Check channel utilization
         channel_utilization = ap_stats.get('channel_utilization')
