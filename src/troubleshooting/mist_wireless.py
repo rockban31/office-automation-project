@@ -322,7 +322,7 @@ class MistWirelessTroubleshooter:
         """Check AP uptime and suggest reboot if needed"""
         ap_stats = self.get_ap_stats(site_id, ap_mac)
         
-        if not ap_stats:
+        if not ap_stats or not isinstance(ap_stats, dict):
             self.log(f"AP stats not available for {ap_mac} (API limitation)", 'INFO')
             return None
         
@@ -535,7 +535,7 @@ class MistWirelessTroubleshooter:
         
         # Check AP statistics for hardware health indicators
         ap_stats = self.get_ap_stats(site_id, ap_mac)
-        if ap_stats:
+        if ap_stats and isinstance(ap_stats, dict):
             # Check memory utilization
             memory_usage = ap_stats.get('memory_usage') or ap_stats.get('mem_used_kb')
             if memory_usage and memory_usage > 85:
@@ -576,14 +576,14 @@ class MistWirelessTroubleshooter:
         
         # Get AP radio statistics
         ap_stats = self.get_ap_stats(site_id, ap_mac)
-        if not ap_stats:
+        if not ap_stats or not isinstance(ap_stats, dict):
             print(f"   ⚠️  RF stats not available (API limitation)")
             self.log(f"RF stats not available for {ap_mac} (API limitation)", 'INFO')
             # Still analyze client-side RF metrics below
             ap_stats = {}
         
         # Check channel utilization
-        channel_utilization = ap_stats.get('channel_utilization')
+        channel_utilization = ap_stats.get('channel_utilization') if isinstance(ap_stats, dict) else None
         if channel_utilization:
             if isinstance(channel_utilization, dict):
                 for band, util in channel_utilization.items():
@@ -595,7 +595,7 @@ class MistWirelessTroubleshooter:
                         })
         
         # Check noise levels
-        noise_level = ap_stats.get('noise_level')
+        noise_level = ap_stats.get('noise_level') if isinstance(ap_stats, dict) else None
         if noise_level:
             if isinstance(noise_level, dict):
                 for band, noise in noise_level.items():
@@ -611,15 +611,15 @@ class MistWirelessTroubleshooter:
         params = {'type': 'ap', 'limit': 100}
         devices = self.make_api_request(endpoint, params=params)
         
-        if devices and client_info:
+        if devices and isinstance(devices, list) and client_info:
             client_channel = client_info.get('channel')
             client_band = client_info.get('band')
             same_channel_aps = 0
             
             for device in devices:
-                if device.get('mac') != ap_mac:  # Don't count the same AP
+                if isinstance(device, dict) and device.get('mac') != ap_mac:  # Don't count the same AP
                     device_stats = self.get_ap_stats(site_id, device.get('mac'))
-                    if device_stats:
+                    if device_stats and isinstance(device_stats, dict):
                         device_channel = device_stats.get('channel')
                         device_band = device_stats.get('band')
                         

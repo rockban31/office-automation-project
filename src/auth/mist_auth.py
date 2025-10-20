@@ -19,12 +19,14 @@ logging.basicConfig(
 import mistapi
 
 # Aggressively suppress mistapi library verbose logging AFTER import
-for logger_name in ['mistapi', 'mistapi.apisession', 'mistapi.apirequest', 'mistapi.apiresponse']:
+for logger_name in ['mistapi', 'mistapi.apisession', 'mistapi.apirequest', 'mistapi.apiresponse', 'mistapi.api']:
     mistapi_logger = logging.getLogger(logger_name)
     mistapi_logger.setLevel(logging.CRITICAL)  # Only show critical errors
     mistapi_logger.propagate = False  # Don't propagate to root logger
     # Remove all handlers
     mistapi_logger.handlers = []
+    # Disable all logging for this logger
+    mistapi_logger.disabled = True
 
 # Set up our own logger
 logger = logging.getLogger(__name__)
