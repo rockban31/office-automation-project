@@ -266,13 +266,20 @@ class MistWirelessTroubleshooter:
         # Check retry rates
         tx_retries = client_info.get('tx_retries', 0)
         rx_retries = client_info.get('rx_retries', 0)
+        tx_pkts = client_info.get('tx_pkts', 0)
+        rx_pkts = client_info.get('rx_pkts', 0)
         
-        if tx_retries > 20 or rx_retries > 20:
+        # Calculate retry rates as percentage of total packets
+        tx_retry_rate = (tx_retries / tx_pkts * 100) if tx_pkts > 0 else 0
+        rx_retry_rate = (rx_retries / rx_pkts * 100) if rx_pkts > 0 else 0
+        
+        # Flag if retry rate exceeds 10% (industry threshold for concern)
+        if tx_retry_rate > 10 or rx_retry_rate > 10:
             health_issues.append({
                 'metric': 'Retries',
-                'value': f'TX: {tx_retries}%, RX: {rx_retries}%',
-                'issue': f'High retry rates detected (TX: {tx_retries}%, RX: {rx_retries}%)',
-                'severity': 'MEDIUM'
+                'value': f'TX: {tx_retry_rate:.1f}% ({tx_retries}/{tx_pkts}), RX: {rx_retry_rate:.1f}% ({rx_retries}/{rx_pkts})',
+                'issue': f'High retry rates detected - TX: {tx_retry_rate:.1f}%, RX: {rx_retry_rate:.1f}% (should be < 10%)',
+                'severity': 'HIGH' if tx_retry_rate > 20 or rx_retry_rate > 20 else 'MEDIUM'
             })
         
         # Check latency if available
