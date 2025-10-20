@@ -120,7 +120,32 @@ class MistWirelessTroubleshooter:
     
     def get_client_info(self, mac_address: str, hours_back: int = 24) -> Optional[Dict[str, Any]]:
         """Get client information and current session"""
-        # Add time range to search (default: last 24 hours)
+        # First, try to get currently connected client from all sites (live data with RSSI/SNR)
+        print("   Searching for currently connected client...")
+        
+        # Get all sites in organization
+        sites = self.make_api_request(f"/orgs/{self.org_id}/sites")
+        if sites and isinstance(sites, list):
+            # Search each site for the client
+            for site in sites:
+                site_id = site.get('id')
+                if site_id:
+                    # Get currently connected clients for this site
+                    clients = self.make_api_request(f"/sites/{site_id}/stats/clients", params={"mac": mac_address})
+                    if clients and isinstance(clients, list):
+                        # Normalize MAC address for comparison (remove colons/hyphens)
+                        search_mac = mac_address.lower().replace(':', '').replace('-', '')
+                        for client in clients:
+                            client_mac = client.get('mac', '').lower().replace(':', '').replace('-', '')
+                            if client_mac == search_mac:
+                                print(f"   ✅ Found in site: {site.get('name')}")
+                                # Add site info to client data
+                                client['site_id'] = site_id
+                                client['site_name'] = site.get('name')
+                                return client
+        
+        # If not currently connected, search historical data
+        print("   Not currently connected, searching historical data...")
         end_time = int(time.time())
         start_time = end_time - (hours_back * 3600)
         
@@ -135,15 +160,6 @@ class MistWirelessTroubleshooter:
         result = self.make_api_request(endpoint, params=params)
         if result and result.get('results'):
             return result['results'][0]
-        
-        # If not found in search, try getting currently connected clients
-        print("   Searching in currently connected clients...")
-        endpoint = f"/orgs/{self.org_id}/stats/clients"
-        params = {"mac": mac_address}
-        
-        result = self.make_api_request(endpoint, params=params)
-        if result and isinstance(result, list) and len(result) > 0:
-            return result[0]
         
         return None
     
@@ -161,14 +177,14 @@ class MistWirelessTroubleshooter:
         
         return self.make_api_request(endpoint, params=params)
     
-    def get_ap_info(self, ap_mac: str) -> Optional[Dict[str, Any]]:
+    def get_ap_info(self, site_id: str, ap_mac: str) -> Optional[Dict[str, Any]]:
         """Get Access Point information"""
-        endpoint = f"/orgs/{self.org_id}/devices/{ap_mac}"
+        endpoint = f"/sites/{site_id}/devices/{ap_mac}"
         return self.make_api_request(endpoint)
     
-    def get_ap_stats(self, ap_mac: str) -> Optional[Dict[str, Any]]:
+    def get_ap_stats(self, site_id: str, ap_mac: str) -> Optional[Dict[str, Any]]:
         """Get AP statistics and uptime"""
-        endpoint = f"/orgs/{self.org_id}/devices/{ap_mac}/stats"
+        endpoint = f"/sites/{site_id}/stats/devices/{ap_mac}"
         return self.make_api_request(endpoint)
     
     def analyze_auth_issues(self, events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -271,9 +287,9 @@ class MistWirelessTroubleshooter:
         
         return health_issues
     
-    def check_ap_uptime(self, ap_mac: str) -> Optional[Dict[str, Any]]:
+    def check_ap_uptime(self, site_id: str, ap_mac: str) -> Optional[Dict[str, Any]]:
         """Check AP uptime and suggest reboot if needed"""
-        ap_stats = self.get_ap_stats(ap_mac)
+        ap_stats = self.get_ap_stats(site_id, ap_mac)
         
         if not ap_stats:
             return None
@@ -448,14 +464,14 @@ class MistWirelessTroubleshooter:
         
         return connectivity_issues
     
-    def check_ap_hardware(self, ap_mac: str) -> List[Dict[str, Any]]:
+    def check_ap_hardware(self, site_id: str, ap_mac: str) -> List[Dict[str, Any]]:
         """Check AP hardware status"""
         hardware_issues = []
         
         print(f"   Checking AP {ap_mac} hardware status...")
         
         # Get AP device info
-        ap_info = self.get_ap_info(ap_mac)
+        ap_info = self.get_ap_info(site_id, ap_mac)
         if not ap_info:
             hardware_issues.append({
                 'component': 'AP Communication',
@@ -485,7 +501,7 @@ class MistWirelessTroubleshooter:
                 })
         
         # Check AP statistics for hardware health indicators
-        ap_stats = self.get_ap_stats(ap_mac)
+        ap_stats = self.get_ap_stats(site_id, ap_mac)
         if ap_stats:
             # Check memory utilization
             memory_usage = ap_stats.get('memory_usage')
@@ -516,14 +532,14 @@ class MistWirelessTroubleshooter:
         
         return hardware_issues
     
-    def analyze_rf_environment(self, ap_mac: str, client_info: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def analyze_rf_environment(self, site_id: str, ap_mac: str, client_info: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Analyze RF environment for the AP and client"""
         rf_issues = []
         
         print(f"   Analyzing RF environment for AP {ap_mac}...")
         
         # Get AP radio statistics
-        ap_stats = self.get_ap_stats(ap_mac)
+        ap_stats = self.get_ap_stats(site_id, ap_mac)
         if not ap_stats:
             rf_issues.append({
                 'component': 'RF Analysis',
@@ -568,7 +584,7 @@ class MistWirelessTroubleshooter:
             
             for device in devices:
                 if device.get('mac') != ap_mac:  # Don't count the same AP
-                    device_stats = self.get_ap_stats(device.get('mac'))
+                    device_stats = self.get_ap_stats(site_id, device.get('mac'))
                     if device_stats:
                         device_channel = device_stats.get('channel')
                         device_band = device_stats.get('band')
@@ -768,24 +784,25 @@ class MistWirelessTroubleshooter:
                 
                 # Proceed with detailed analysis as per flowchart
                 ap_mac = client_info.get('ap_mac')
+                site_id = client_info.get('site_id')  # Get site_id from client_info
                 connectivity_issues = []
                 hardware_issues = []
                 rf_issues = []
                 
-                if ap_mac:
+                if ap_mac and site_id:
                     print(f"\n🔍 [STEP 4a] Performing Client Connectivity & Reachability Checks...")
                     connectivity_issues = self.check_client_connectivity_reachability(client_ip, client_mac, client_info)
                     
                     print(f"\n🔍 [STEP 4b] Checking AP and Radio Performance...")
-                    ap_uptime = self.check_ap_uptime(ap_mac)
+                    ap_uptime = self.check_ap_uptime(site_id, ap_mac)
                     if ap_uptime:
                         print(f"   AP Uptime: {ap_uptime['uptime_days']:.1f} days ({ap_uptime['reason']})")
                     
                     print(f"\n🔍 [STEP 4c] Checking AP Hardware Status...")
-                    hardware_issues = self.check_ap_hardware(ap_mac)
+                    hardware_issues = self.check_ap_hardware(site_id, ap_mac)
                     
                     print(f"\n🔍 [STEP 4d] Analyzing RF Environment...")
-                    rf_issues = self.analyze_rf_environment(ap_mac, client_info)
+                    rf_issues = self.analyze_rf_environment(site_id, ap_mac, client_info)
                 
                 # Compile all issues and prioritize
                 all_issues = health_issues + connectivity_issues + hardware_issues + rf_issues
