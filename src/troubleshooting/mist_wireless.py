@@ -55,7 +55,7 @@ class MistWirelessTroubleshooter:
         self.logger = self._setup_logging() if enable_logging else None
     
     def _setup_logging(self) -> logging.Logger:
-        """Set up logging configuration for troubleshooting session"""
+        """Set up logging configuration for troubleshooting session with DEBUG level"""
         # Generate log filename if not provided
         if not self.log_file:
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -68,17 +68,20 @@ class MistWirelessTroubleshooter:
             
             self.log_file = os.path.join(logs_dir, f'troubleshooting-{timestamp}.log')
         
-        # Create logger
+        # Create logger with DEBUG level
         logger = logging.getLogger(f'mist_troubleshooter_{id(self)}')
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.DEBUG)  # Set to DEBUG to capture all log levels
+        
+        # Prevent propagation to root logger (keeps debug out of console)
+        logger.propagate = False
         
         # Remove existing handlers to avoid duplicates
         for handler in logger.handlers[:]:
             logger.removeHandler(handler)
         
-        # Create file handler
+        # Create file handler with DEBUG level
         file_handler = logging.FileHandler(self.log_file, mode='w', encoding='utf-8')
-        file_handler.setLevel(logging.INFO)
+        file_handler.setLevel(logging.DEBUG)  # File captures DEBUG and above
         
         # Create formatter
         formatter = logging.Formatter(
@@ -95,6 +98,8 @@ class MistWirelessTroubleshooter:
         logger.info("=" * 60)
         logger.info(f"Organization ID: {self.org_id}")
         logger.info(f"Log file: {self.log_file}")
+        logger.debug(f"Base URL: {self.base_url}")
+        logger.debug(f"Logging level: DEBUG (file only)")
         
         return logger
     
@@ -105,6 +110,8 @@ class MistWirelessTroubleshooter:
                 self.logger.error(message)
             elif level.upper() == 'WARNING':
                 self.logger.warning(message)
+            elif level.upper() == 'DEBUG':
+                self.logger.debug(message)
             else:
                 self.logger.info(message)
     
@@ -112,46 +119,63 @@ class MistWirelessTroubleshooter:
                         params: Optional[Dict[str, Any]] = None,
                         json_data: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         """Make API request using the integrated auth system"""
+        self.log(f"DEBUG: API Request - {method} {endpoint}", 'DEBUG')
+        if params:
+            self.log(f"DEBUG: Request params: {params}", 'DEBUG')
         try:
-            return self.auth.make_request(endpoint, method, params, json_data)
+            result = self.auth.make_request(endpoint, method, params, json_data)
+            self.log(f"DEBUG: API Response received - Status: Success", 'DEBUG')
+            return result
         except MistAuthError as e:
+            self.log(f"ERROR: API request failed - {method} {endpoint}: {e}", 'ERROR')
             print(f"API request failed: {e}")
             return None
     
     def get_ap_name(self, site_id: str, ap_mac: str) -> str:
         """Get AP name/hostname from MAC address"""
+        self.log(f"DEBUG: Fetching AP name for MAC: {ap_mac} in site: {site_id}", 'DEBUG')
         try:
             # Get all devices for the site
             devices = self.make_api_request(f"/sites/{site_id}/devices")
             if devices and isinstance(devices, list):
+                self.log(f"DEBUG: Found {len(devices)} devices in site", 'DEBUG')
                 # Normalize MAC for comparison
                 search_mac = ap_mac.lower().replace(':', '').replace('-', '')
                 for device in devices:
                     device_mac = device.get('mac', '').lower().replace(':', '').replace('-', '')
                     if device_mac == search_mac and device.get('type') == 'ap':
-                        return device.get('name', 'Unknown')
+                        ap_name = device.get('name', 'Unknown')
+                        self.log(f"DEBUG: AP name resolved: {ap_name}", 'DEBUG')
+                        return ap_name
+                self.log(f"DEBUG: No matching AP found for MAC: {ap_mac}", 'DEBUG')
         except Exception as e:
             self.log(f"Failed to get AP name for {ap_mac}: {e}", 'WARNING')
         return 'Unknown'
     
     def get_client_info(self, mac_address: str, hours_back: int = 24) -> Optional[Dict[str, Any]]:
         """Get client information and current session"""
+        self.log(f"DEBUG: Searching for client MAC: {mac_address}", 'DEBUG')
         # First, try to get currently connected client from all sites (live data with RSSI/SNR)
         # Get all sites in organization
         sites = self.make_api_request(f"/orgs/{self.org_id}/sites")
         if sites and isinstance(sites, list):
+            self.log(f"DEBUG: Searching across {len(sites)} sites", 'DEBUG')
             # Search each site for the client
             for site in sites:
                 site_id = site.get('id')
+                site_name = site.get('name')
                 if site_id:
+                    self.log(f"DEBUG: Checking site: {site_name} ({site_id})", 'DEBUG')
                     # Get currently connected clients for this site
                     clients = self.make_api_request(f"/sites/{site_id}/stats/clients", params={"mac": mac_address})
                     if clients and isinstance(clients, list):
+                        self.log(f"DEBUG: Found {len(clients)} client(s) in site {site_name}", 'DEBUG')
                         # Normalize MAC address for comparison (remove colons/hyphens)
                         search_mac = mac_address.lower().replace(':', '').replace('-', '')
                         for client in clients:
                             client_mac = client.get('mac', '').lower().replace(':', '').replace('-', '')
                             if client_mac == search_mac:
+                                self.log(f"DEBUG: Client found in site: {site_name}", 'DEBUG')
                                 # Add site info to client data
                                 client['site_id'] = site_id
                                 client['site_name'] = site.get('name')
@@ -162,9 +186,11 @@ class MistWirelessTroubleshooter:
                                     ap_name = self.get_ap_name(site_id, ap_mac)
                                     client['ap_name'] = ap_name
                                 
+                                self.log(f"DEBUG: Returning live client data", 'DEBUG')
                                 return client
         
         # If not currently connected, search historical data
+        self.log(f"DEBUG: Client not found in live data, searching historical data", 'DEBUG')
         end_time = int(time.time())
         start_time = end_time - (hours_back * 3600)
         
@@ -178,8 +204,10 @@ class MistWirelessTroubleshooter:
         
         result = self.make_api_request(endpoint, params=params)
         if result and result.get('results'):
+            self.log(f"DEBUG: Client found in historical data", 'DEBUG')
             return result['results'][0]
         
+        self.log(f"DEBUG: Client not found in historical data either", 'DEBUG')
         return None
     
     def get_client_events(self, mac_address: str, hours_back: int = 24) -> Optional[Dict[str, Any]]:
@@ -313,17 +341,18 @@ class MistWirelessTroubleshooter:
         
         return health_issues
     
-    def check_ap_uptime(self, site_id: str, ap_mac: str) -> Optional[Dict[str, Any]]:
-        """Check AP uptime and suggest reboot if needed"""
-        ap_stats = self.get_ap_stats(site_id, ap_mac)
+    def check_ap_uptime(self, site_id: str, ap_id: str) -> Optional[Dict[str, Any]]:
+        """STEP 4b: Check AP uptime using AP ID (not AP MAC) and suggest reboot if needed"""
+        # Get AP stats using the device ID (not MAC)
+        ap_stats = self.get_ap_stats(site_id, ap_id)
         
         if not ap_stats or not isinstance(ap_stats, dict):
-            self.log(f"AP stats not available for {ap_mac} (API limitation)", 'INFO')
+            self.log(f"AP stats not available for {ap_id} (API limitation)", 'INFO')
             return None
         
         uptime = ap_stats.get('uptime')
         if not uptime:
-            self.log(f"AP uptime not available in stats for {ap_mac}", 'INFO')
+            self.log(f"AP uptime not available in stats for {ap_id}", 'INFO')
             return None
         
         uptime_hours = uptime / 3600
@@ -411,16 +440,40 @@ class MistWirelessTroubleshooter:
         
         return infra_issues
     
-    def check_client_connectivity_reachability(self, client_ip: str, client_mac: str, 
-                                             client_info: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Check client connectivity and reachability for drops and latency"""
+    def analyze_disconnection_patterns(self, client_mac: str) -> List[Dict[str, Any]]:
+        """STEP 4a: Analyze client disconnection patterns over the past 5 minutes"""
+        connectivity_issues = []
+        
+        print("   Analyzing client disconnect patterns (past 5 minutes)...")
+        
+        # Check for frequent disconnections in the last 5 minutes
+        events = self.get_client_events(client_mac, hours_back=0.084)  # ~5 minutes in hours (5/60)
+        if events and events.get('results'):
+            disconnect_count = 0
+            for event in events['results']:
+                event_type = event.get('type', '').lower()
+                if 'disconnect' in event_type or 'disassoc' in event_type:
+                    disconnect_count += 1
+            
+            if disconnect_count >= 7:  # 7 or more disconnects in 5 minutes
+                connectivity_issues.append({
+                    'metric': 'Disconnection Pattern',
+                    'value': f'{disconnect_count} disconnects in 5min',
+                    'issue': f'Frequent disconnections detected: {disconnect_count} in the last 5 minutes (threshold: ≥7)',
+                    'severity': 'HIGH'
+                })
+        
+        return connectivity_issues
+    
+    def check_client_connectivity_ping(self, client_ip: str) -> List[Dict[str, Any]]:
+        """Check client connectivity via ping for packet loss and latency"""
         connectivity_issues = []
         
         if client_ip == "unknown":
             connectivity_issues.append({
                 'metric': 'IP Address',
                 'value': 'Unknown',
-                'issue': 'Client IP address not provided - skipping connectivity tests',
+                'issue': 'Client IP address not provided - skipping ping tests',
                 'severity': 'MEDIUM'
             })
             return connectivity_issues
@@ -454,18 +507,11 @@ class MistWirelessTroubleshooter:
                     avg_latency = float(latency_match.group(1))
                     if avg_latency > 100:
                         connectivity_issues.append({
-                            'metric': 'Ping Latency',
+                            'metric': 'Average Latency',
                             'value': f'{avg_latency:.1f}ms',
-                            'issue': f'High ping latency: {avg_latency:.1f}ms (should be < 100ms)',
+                            'issue': f'High average latency: {avg_latency:.1f}ms (should be < 100ms)',
                             'severity': 'MEDIUM' if avg_latency < 200 else 'HIGH'
                         })
-            else:
-                connectivity_issues.append({
-                    'metric': 'Reachability',
-                    'value': 'Failed',
-                    'issue': f'Client {client_ip} is unreachable via ping',
-                    'severity': 'HIGH'
-                })
         
         except Exception as e:
             connectivity_issues.append({
@@ -475,178 +521,9 @@ class MistWirelessTroubleshooter:
                 'severity': 'MEDIUM'
             })
         
-        # Check for frequent disconnections in client events
-        print("   Analyzing client disconnect patterns...")
-        events = self.get_client_events(client_mac, hours_back=4)  # Check last 4 hours
-        if events and events.get('results'):
-            disconnect_count = 0
-            for event in events['results']:
-                event_type = event.get('type', '').lower()
-                if 'disconnect' in event_type or 'disassoc' in event_type:
-                    disconnect_count += 1
-            
-            if disconnect_count > 5:  # More than 5 disconnects in 4 hours
-                connectivity_issues.append({
-                    'metric': 'Disconnection Frequency',
-                    'value': f'{disconnect_count} in 4h',
-                    'issue': f'Frequent disconnections detected: {disconnect_count} in the last 4 hours',
-                    'severity': 'HIGH' if disconnect_count > 10 else 'MEDIUM'
-                })
-        
         return connectivity_issues
     
-    def check_ap_hardware(self, site_id: str, ap_mac: str) -> List[Dict[str, Any]]:
-        """Check AP hardware status"""
-        hardware_issues = []
-        
-        print(f"   Checking AP {ap_mac} hardware status...")
-        
-        # Get AP device info
-        ap_info = self.get_ap_info(site_id, ap_mac)
-        if not ap_info:
-            print(f"   ⚠️  AP hardware stats not available (API limitation)")
-            self.log(f"AP hardware stats not available for {ap_mac} (API limitation)", 'INFO')
-            return hardware_issues
-        
-        # Check AP status
-        status = ap_info.get('status', 'unknown')
-        if status.lower() not in ['connected', 'online']:
-            hardware_issues.append({
-                'component': 'AP Status',
-                'issue': f'AP status is {status} (expected: connected/online)',
-                'severity': 'HIGH'
-            })
-        
-        # Check last seen timestamp
-        last_seen = ap_info.get('last_seen')
-        if last_seen:
-            time_diff = time.time() - last_seen
-            if time_diff > 300:  # More than 5 minutes
-                hardware_issues.append({
-                    'component': 'AP Connectivity',
-                    'issue': f'AP last seen {time_diff/60:.1f} minutes ago',
-                    'severity': 'HIGH' if time_diff > 900 else 'MEDIUM'
-                })
-        
-        # Check AP statistics for hardware health indicators
-        ap_stats = self.get_ap_stats(site_id, ap_mac)
-        if ap_stats and isinstance(ap_stats, dict):
-            # Check memory utilization
-            memory_usage = ap_stats.get('memory_usage') or ap_stats.get('mem_used_kb')
-            if memory_usage and memory_usage > 85:
-                hardware_issues.append({
-                    'component': 'Memory',
-                    'issue': f'High memory usage: {memory_usage}% (should be < 85%)',
-                    'severity': 'HIGH' if memory_usage > 95 else 'MEDIUM'
-                })
-            
-            # Check CPU utilization
-            cpu_usage = ap_stats.get('cpu_usage') or ap_stats.get('cpu')
-            if cpu_usage and cpu_usage > 80:
-                hardware_issues.append({
-                    'component': 'CPU',
-                    'issue': f'High CPU usage: {cpu_usage}% (should be < 80%)',
-                    'severity': 'HIGH' if cpu_usage > 90 else 'MEDIUM'
-                })
-            
-            # Check temperature if available
-            temperature = ap_stats.get('temperature') or ap_stats.get('temp')
-            if temperature and temperature > 70:
-                hardware_issues.append({
-                    'component': 'Temperature',
-                    'issue': f'High temperature: {temperature}°C (should be < 70°C)',
-                    'severity': 'HIGH' if temperature > 80 else 'MEDIUM'
-                })
-        else:
-            print(f"   ⚠️  AP stats not available (API limitation)")
-            self.log(f"AP stats not available for {ap_mac} (API limitation)", 'INFO')
-        
-        return hardware_issues
     
-    def analyze_rf_environment(self, site_id: str, ap_mac: str, client_info: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Analyze RF environment for the AP and client"""
-        rf_issues = []
-        
-        print(f"   Analyzing RF environment for AP {ap_mac}...")
-        
-        # Get AP radio statistics
-        ap_stats = self.get_ap_stats(site_id, ap_mac)
-        if not ap_stats or not isinstance(ap_stats, dict):
-            print(f"   ⚠️  RF stats not available (API limitation)")
-            self.log(f"RF stats not available for {ap_mac} (API limitation)", 'INFO')
-            # Still analyze client-side RF metrics below
-            ap_stats = {}
-        
-        # Check channel utilization
-        channel_utilization = ap_stats.get('channel_utilization') if isinstance(ap_stats, dict) else None
-        if channel_utilization:
-            if isinstance(channel_utilization, dict):
-                for band, util in channel_utilization.items():
-                    if util > 70:
-                        rf_issues.append({
-                            'component': f'Channel Utilization ({band})',
-                            'issue': f'High channel utilization: {util}% (should be < 70%)',
-                            'severity': 'HIGH' if util > 85 else 'MEDIUM'
-                        })
-        
-        # Check noise levels
-        noise_level = ap_stats.get('noise_level') if isinstance(ap_stats, dict) else None
-        if noise_level:
-            if isinstance(noise_level, dict):
-                for band, noise in noise_level.items():
-                    if noise > -85:  # Noise above -85 dBm is concerning
-                        rf_issues.append({
-                            'component': f'Noise Level ({band})',
-                            'issue': f'High noise level: {noise} dBm (should be < -85 dBm)',
-                            'severity': 'HIGH' if noise > -80 else 'MEDIUM'
-                        })
-        
-        # Check for neighboring APs on same channel
-        endpoint = f"/orgs/{self.org_id}/devices"
-        params = {'type': 'ap', 'limit': 100}
-        devices = self.make_api_request(endpoint, params=params)
-        
-        if devices and isinstance(devices, list) and client_info:
-            client_channel = client_info.get('channel')
-            client_band = client_info.get('band')
-            same_channel_aps = 0
-            
-            for device in devices:
-                if isinstance(device, dict) and device.get('mac') != ap_mac:  # Don't count the same AP
-                    device_stats = self.get_ap_stats(site_id, device.get('mac'))
-                    if device_stats and isinstance(device_stats, dict):
-                        device_channel = device_stats.get('channel')
-                        device_band = device_stats.get('band')
-                        
-                        if device_channel == client_channel and device_band == client_band:
-                            same_channel_aps += 1
-            
-            if same_channel_aps > 2:
-                rf_issues.append({
-                    'component': 'Channel Overlap',
-                    'issue': f'Multiple APs ({same_channel_aps}) detected on same channel {client_channel}',
-                    'severity': 'MEDIUM'
-                })
-        
-        # Check client signal metrics again for RF context
-        rssi = client_info.get('rssi') if client_info else None
-        snr = client_info.get('snr') if client_info else None
-        
-        if rssi and rssi < -70:
-            rf_issues.append({
-                'component': 'Signal Coverage',
-                'issue': f'Poor signal coverage at client location: {rssi} dBm',
-                'severity': 'HIGH' if rssi < -80 else 'MEDIUM'
-            })
-        
-        if snr and snr < 15:
-            rf_issues.append({
-                'component': 'RF Interference',
-                'issue': f'Possible RF interference detected: {snr} dB SNR',
-                'severity': 'HIGH' if snr < 10 else 'MEDIUM'
-            })
-        
-        return rf_issues
     
     def troubleshoot_client(self, client_ip: str, client_mac: str, hours_back: int = 24) -> Dict[str, Any]:
         """
@@ -708,10 +585,12 @@ class MistWirelessTroubleshooter:
             client_name = client_info.get('hostname') or client_info.get('username') or 'Unknown'
             ap_mac = client_info.get('ap_mac') or client_info.get('ap_id') or 'Unknown'
             ap_name = client_info.get('ap_name', 'Unknown') if ap_mac != 'Unknown' else 'Unknown'
+            ssid = client_info.get('ssid', 'Unknown')
             
             # Display client and AP info
             if ap_mac != 'Unknown':
                 print(f"✅ Client found: {client_name} connected to AP {ap_name} ({ap_mac})")
+                print(f"   SSID: {ssid}")
             else:
                 print(f"✅ Client found: {client_name} (not currently connected to any AP)")
             
@@ -732,6 +611,7 @@ class MistWirelessTroubleshooter:
                 self.log("WARNING: Incomplete client data detected", 'WARNING')
             
             self.log(f"Client found: {client_name} (MAC: {client_mac}) connected to AP {ap_name} ({ap_mac})")
+            self.log(f"SSID: {ssid}")
             self.log(f"Client details: RSSI={rssi}, SNR={snr}, IP={ip_addr}")
             results['steps_completed'].append('client_association_check')
             
@@ -772,16 +652,25 @@ class MistWirelessTroubleshooter:
             
             # STEP 3: Check DNS/DHCP Lease Errors
             print(f"\n🔍 [STEP 3] Checking DNS/DHCP Lease Errors...")
+            self.log("STEP 3: Starting DNS/DHCP lease error analysis")
             dhcp_dns_issues = self.analyze_dhcp_dns_issues(events.get('results', []) if events else [])
             
             if dhcp_dns_issues:
                 print(f"\n🔴 DHCP/DNS ISSUES DETECTED:")
+                self.log(f"DHCP/DNS issues detected: {len(dhcp_dns_issues)} issues found", 'WARNING')
                 for issue in dhcp_dns_issues[-3:]:  # Show last 3 issues
                     print(f"   • {issue['type']}: {issue.get('details', '')}")
+                    self.log(f"DHCP/DNS issue: {issue['type']} - {issue.get('details', '')}", 'WARNING')
                 
                 # Perform network infrastructure checks
                 print(f"\n🔍 [STEP 3a] Performing Network Infrastructure Checks...")
+                self.log("STEP 3a: Performing network infrastructure checks")
                 infra_issues = self.check_network_infrastructure(client_ip)
+                
+                if infra_issues:
+                    self.log(f"Infrastructure issues found: {len(infra_issues)} issues", 'WARNING')
+                    for infra_issue in infra_issues:
+                        self.log(f"Infrastructure issue: {infra_issue.get('component')} - {infra_issue.get('issue')}", 'WARNING')
                 
                 results['status'] = 'network_infrastructure_issues'
                 results['escalation_path'] = 'check_lan_wan_dhcp_dns'
@@ -797,93 +686,162 @@ class MistWirelessTroubleshooter:
                 
                 print(f"\n📋 FLOWCHART DECISION: DNS/DHCP Lease Errors → Check Network Infrastructure")
                 print(f"\n🎯 ESCALATION: Route to Network Infrastructure team")
+                self.log("Session ended with escalation to Network Infrastructure team for DHCP/DNS issues")
                 return results
             
             print(f"✅ No DNS/DHCP lease errors detected")
+            self.log("STEP 3 completed: No DNS/DHCP lease errors detected")
             results['steps_completed'].append('dhcp_dns_check')
             
             # STEP 4: Check Client Health Metrics (RSSI, SNR, Retries, Latency)
             print(f"\n🔍 [STEP 4] Analyzing Client Health Metrics...")
+            self.log("STEP 4: Starting client health metrics analysis")
             health_issues = self.analyze_client_health(client_info)
             
             if health_issues:
                 print(f"\n🟡 CLIENT HEALTH ISSUES DETECTED:")
+                self.log(f"Client health issues detected: {len(health_issues)} issues found", 'WARNING')
                 for issue in health_issues:
                     print(f"   • {issue['metric']}: {issue['issue']} [{issue['severity']}]")
+                    self.log(f"Health issue: {issue['metric']} - {issue['issue']} - Severity: {issue['severity']}", 'WARNING')
                 
-                # Proceed with detailed analysis as per flowchart
+                # Proceed with detailed analysis as per new workflow
                 ap_mac = client_info.get('ap_mac')
-                site_id = client_info.get('site_id')  # Get site_id from client_info
-                connectivity_issues = []
-                hardware_issues = []
-                rf_issues = []
+                ap_id = client_info.get('ap_id') or ap_mac  # Prefer ap_id, fallback to ap_mac
+                site_id = client_info.get('site_id')
+                all_issues = health_issues.copy()
                 
-                if ap_mac and site_id:
-                    print(f"\n🔍 [STEP 4a] Performing Client Connectivity & Reachability Checks...")
-                    connectivity_issues = self.check_client_connectivity_reachability(client_ip, client_mac, client_info)
-                    
-                    print(f"\n🔍 [STEP 4b] Checking AP and Radio Performance...")
-                    ap_uptime = self.check_ap_uptime(site_id, ap_mac)
-                    if ap_uptime:
-                        print(f"   AP Uptime: {ap_uptime['uptime_days']:.1f} days ({ap_uptime['reason']})")
-                    
-                    print(f"\n🔍 [STEP 4c] Checking AP Hardware Status...")
-                    hardware_issues = self.check_ap_hardware(site_id, ap_mac)
-                    
-                    print(f"\n🔍 [STEP 4d] Analyzing RF Environment...")
-                    rf_issues = self.analyze_rf_environment(site_id, ap_mac, client_info)
+                # STEP 4a: Disconnection Pattern Analysis (5 minutes)
+                print(f"\n🔍 [STEP 4a] Analyzing Disconnection Patterns (past 5 minutes)...")
+                self.log("STEP 4a: Analyzing disconnection patterns (5-minute window)")
+                disconnect_issues = self.analyze_disconnection_patterns(client_mac)
+                all_issues.extend(disconnect_issues)
+                if disconnect_issues:
+                    for disc_issue in disconnect_issues:
+                        self.log(f"Disconnection issue: {disc_issue.get('metric')} - {disc_issue.get('issue')}", 'WARNING')
+                else:
+                    self.log("No disconnection pattern issues detected (< 7 events in 5 min)")
+                
+                # Ping-based connectivity checks (packet loss and latency)
+                print(f"\n🔍 [STEP 4a] Checking Packet Loss and Average Latency via Ping...")
+                self.log("STEP 4a: Checking packet loss and average latency via ping")
+                ping_issues = self.check_client_connectivity_ping(client_ip)
+                all_issues.extend(ping_issues)
+                if ping_issues:
+                    for ping_issue in ping_issues:
+                        self.log(f"Ping issue: {ping_issue.get('metric')} - {ping_issue.get('issue')}", 'WARNING')
+                else:
+                    self.log("No packet loss or latency issues detected via ping")
+                
+                # STEP 4b: AP Uptime Analysis (moved to last sub-step)
+                ap_uptime_info = None
+                if site_id and ap_id:
+                    print(f"\n🔍 [STEP 4b] Checking AP Uptime (using AP ID)...")
+                    self.log(f"STEP 4b: Checking AP uptime for AP ID: {ap_id}")
+                    ap_uptime_info = self.check_ap_uptime(site_id, ap_id)
+                    if ap_uptime_info:
+                        print(f"   AP Uptime: {ap_uptime_info['uptime_days']:.1f} days ({ap_uptime_info['reason']})")
+                        self.log(f"AP Uptime: {ap_uptime_info['uptime_days']:.1f} days - {ap_uptime_info['reason']}")
+                        if ap_uptime_info.get('needs_reboot'):
+                            all_issues.append({
+                                'metric': 'AP Uptime',
+                                'value': f"{ap_uptime_info['uptime_days']:.1f} days",
+                                'issue': ap_uptime_info['reason'],
+                                'severity': 'MEDIUM'
+                            })
+                            self.log(f"AP uptime issue: {ap_uptime_info['reason']}", 'WARNING')
                 
                 # Compile all issues and prioritize
-                all_issues = health_issues + connectivity_issues + hardware_issues + rf_issues
                 high_issues = [i for i in all_issues if i.get('severity') == 'HIGH']
                 medium_issues = [i for i in all_issues if i.get('severity') == 'MEDIUM']
                 
                 results['status'] = 'client_health_issues'
-                results['escalation_path'] = 'detailed_analysis_complete'
+                results['escalation_path'] = 'manual_troubleshooting'
                 results['issues_found'] = all_issues
-                results['steps_completed'].extend(['health_check', 'connectivity_check', 'hardware_check', 'rf_analysis'])
+                results['steps_completed'].extend(['health_check', 'disconnection_analysis', 'ping_check', 'ap_uptime_check'])
                 
-                # Generate recommendations based on issue types
-                recommendations = []
-                if any('Signal' in str(i) or 'RSSI' in str(i) or 'SNR' in str(i) for i in all_issues):
-                    recommendations.extend([
-                        "Check AP placement and antenna orientation",
-                        "Analyze RF coverage and interference", 
-                        "Consider additional AP deployment"
-                    ])
+                # Manual troubleshooting recommendations
+                recommendations = [
+                    "📋 Manual Troubleshooting Steps for Engineer:",
+                    "   1. Perform LAN/WAN/DHCP/DNS checks based on client metrics",
+                    "   2. Assess AP & Radio Performance (client load, channel utilization, noise)",
+                    "   3. Evaluate AP Hardware health if needed",
+                    "   4. Analyze full RF Environment for interference and coverage",
+                    "",
+                    "🔍 Use the following metrics for assessment:"
+                ]
                 
-                if any('Hardware' in str(i) or 'CPU' in str(i) or 'Memory' in str(i) for i in all_issues):
-                    recommendations.extend([
-                        "Schedule AP maintenance or replacement",
-                        "Check AP firmware version"
-                    ])
+                # Add specific metric-based recommendations
+                rssi = client_info.get('rssi')
+                snr = client_info.get('snr')
+                tx_retries = client_info.get('tx_retries', 0)
+                rx_retries = client_info.get('rx_retries', 0)
+                tx_pkts = client_info.get('tx_pkts', 0)
+                rx_pkts = client_info.get('rx_pkts', 0)
                 
-                if any('Connectivity' in str(i) or 'Latency' in str(i) for i in all_issues):
-                    recommendations.extend([
-                        "Check network path between client and destination",
-                        "Verify QoS policies"
-                    ])
+                tx_retry_rate = (tx_retries / tx_pkts * 100) if tx_pkts > 0 else 0
+                rx_retry_rate = (rx_retries / rx_pkts * 100) if rx_pkts > 0 else 0
+                
+                recommendations.append(f"   • RSSI: {rssi if rssi else 'N/A'} dBm (Good: > -67 dBm, Fair: -67 to -70, Poor: < -70)")
+                recommendations.append(f"   • SNR: {snr if snr else 'N/A'} dB (Good: > 20 dB, Fair: 15-20, Poor: < 15)")
+                recommendations.append(f"   • TX Retry Rate: {tx_retry_rate:.1f}% (Good: < 5%, Concern: 10%+, Critical: 20%+)")
+                recommendations.append(f"   • RX Retry Rate: {rx_retry_rate:.1f}% (Good: < 5%, Concern: 10%+, Critical: 20%+)")
+                
+                # Add latency info if available from ping
+                for issue in ping_issues:
+                    if issue.get('metric') == 'Average Latency':
+                        recommendations.append(f"   • Latency: {issue.get('value')} (Good: < 50ms, Fair: 50-100ms, Poor: 100ms+)")
+                
+                recommendations.append("")
+                recommendations.append("💡 Suggested Actions Based on Metrics:")
+                
+                if rssi and rssi < -70:
+                    recommendations.append("   • Low RSSI: Check AP placement, adjust power, or add AP coverage")
+                if snr and snr < 15:
+                    recommendations.append("   • Low SNR: Investigate RF interference, check for non-WiFi devices")
+                if tx_retry_rate > 10 or rx_retry_rate > 10:
+                    recommendations.append("   • High Retries: Check for channel congestion, co-channel interference, or RF obstacles")
                 
                 results['recommendations'] = recommendations
                 
-                print(f"\n🎯 COMPREHENSIVE TROUBLESHOOTING COMPLETE")
+                print(f"\n🎯 AUTOMATED ANALYSIS COMPLETE")
                 print(f"   Issues found: {len(all_issues)} ({len(high_issues)} HIGH, {len(medium_issues)} MEDIUM)")
+                print(f"\n📋 All automated checks complete. Proceed with manual troubleshooting if needed.")
+                
+                # Log final analysis summary
+                self.log("="*60)
+                self.log(f"AUTOMATED ANALYSIS COMPLETE")
+                self.log(f"Total issues found: {len(all_issues)} (HIGH: {len(high_issues)}, MEDIUM: {len(medium_issues)})")
+                self.log(f"Status: {results['status']}")
+                self.log(f"Escalation path: {results['escalation_path']}")
+                self.log(f"Steps completed: {', '.join(results['steps_completed'])}")
+                self.log("Manual troubleshooting guidance provided to engineer")
+                self.log("="*60)
+                
                 return results
             
             print(f"✅ No client health metric issues detected")
+            self.log("STEP 4 completed: No client health metric issues detected")
             results['steps_completed'].append('health_check')
             
             # STEP 5: All Checks Passed
             print(f"\n✅ ALL AUTOMATED CHECKS COMPLETED SUCCESSFULLY!")
+            print(f"\n📋 All automated checks look good; proceed with manual troubleshooting steps as needed.")
+            
             results['status'] = 'all_good'
             results['escalation_path'] = 'manual_steps_if_needed'
             results['recommendations'] = [
-                "All automated checks passed",
-                "Check application-specific connectivity if issues persist",
-                "Review firewall and security policies",
-                "Consider end-to-end network testing"
+                "✅ All automated checks look good; proceed with manual troubleshooting steps as needed."
             ]
             results['steps_completed'].append('all_checks_complete')
+            
+            # Log final session summary
+            self.log("="*60)
+            self.log("ALL AUTOMATED CHECKS COMPLETED SUCCESSFULLY")
+            self.log(f"Status: {results['status']}")
+            self.log(f"Steps completed: {', '.join(results['steps_completed'])}")
+            self.log("No issues detected - all metrics within normal thresholds")
+            self.log("="*60)
             
             return results
             

@@ -60,87 +60,75 @@ with MistAuth() as auth:
 
 ### 🎯 Core Features
 
-#### 📈 **Comprehensive Analysis**
-- **Client Association Status & Events** - Validates connectivity and recent activity
-- **Authentication & Authorization** - Detects ISE/RADIUS/802.1X issues
-- **Network Infrastructure** - DHCP/DNS problem detection and resolution
-- **Client Health Metrics** - RSSI, SNR, retries, latency analysis
-- **AP Hardware Status** - Memory, CPU, temperature monitoring
-- **RF Environment Analysis** - Channel utilization, noise, interference detection
+#### 📈 **Automated Analysis**
+- **Client Discovery** - Live client data with SSID, AP name, RSSI, SNR, IP
+- **Authentication Check** - Detects ISE/RADIUS/802.1X failures
+- **Network Infrastructure** - DHCP/DNS validation with DNS resolution, internet connectivity, gateway reachability tests
+- **Health Metrics** - RSSI, SNR, retry rates, latency analysis with clear thresholds
+- **Disconnection Patterns** - 5-minute window analysis (≥7 events threshold)
+- **AP Uptime** - Identifies high uptime (>30 days) or recent restarts (<1 hour)
 
-#### 🚀 **Smart Escalation**
-- **Priority Classification**: HIGH/MEDIUM/LOW severity categorization
-- **Team Routing**: Automatic escalation to Security/Infrastructure teams
-- **Actionable Recommendations**: Specific steps for issue resolution
+#### 🚀 **Smart Features**
+- **DEBUG Logging**: Comprehensive file-based logging (API calls, site searches, data resolution)
+- **Team Routing**: Automatic escalation to Security/Infrastructure teams or manual guidance
+- **Metric Thresholds**: Clear Good/Fair/Poor references for all metrics
+- **Utility Scripts**: `check_clients.py` for quick overview of connected clients
 
 ### 🔍 Troubleshooting Workflow
-1. 🔍 **Client Discovery** - Locate and validate client association
+1. 🔍 **Client Discovery** - Locate and validate client association (displays SSID, AP name, RSSI, SNR, IP)
 2. 🔐 **Authentication Analysis** - Check for 802.1X/PSK/RADIUS failures
 3. 🌐 **Network Infrastructure** - Validate DHCP/DNS functionality
-4. 📈 **Health Metrics** - Analyze signal strength, SNR, retry rates
-5. 📶 **Connectivity Testing** - Ping tests and reachability analysis
-6. 💻 **AP Hardware Status** - Monitor AP resources and performance
-7. 📡 **RF Environment** - Channel utilization and interference analysis
+4. 📈 **Health Metrics Analysis** - When issues detected (RSSI, SNR, Retries, Latency):
+   - **4a**: Disconnection pattern analysis (5-minute window, ≥7 events threshold)
+   - **4a**: Packet loss and latency checks via ping
+   - **4b**: AP uptime analysis (using AP ID)
+   - **Manual Guidance**: Provides metric thresholds and suggested actions for engineer assessment
+5. ✅ **Result Summary** - Comprehensive analysis with escalation paths or manual troubleshooting guidance
 
 ### 📝 Technical Specifications
 
 #### 🔍 **Module Details**
 - **Location**: `src/troubleshooting/mist_wireless.py`
-- **Lines of Code**: 766 lines
 - **Main Class**: `MistWirelessTroubleshooter`
+- **Logging**: DEBUG level to file only (no console clutter)
 - **Dependencies**: Built on Office Automation auth and API infrastructure
 
-#### 📁 **Module Structure**
-```
-src/troubleshooting/
-├── __init__.py                    # Module exports and initialization
-└── mist_wireless.py               # Core troubleshooter implementation (766 lines)
-    ├── MistWirelessTroubleshooter  # Main troubleshooter class
-    ├── get_client_info()           # Client discovery and validation
-    ├── analyze_auth_issues()       # Authentication failure detection
-    ├── analyze_dhcp_dns_issues()   # Network infrastructure analysis
-    ├── analyze_client_health()     # Health metrics evaluation
-    ├── check_connectivity()        # Network reachability testing
-    ├── analyze_ap_hardware()       # AP resource monitoring
-    └── analyze_rf_environment()    # RF interference analysis
-```
+#### 📁 **Key Functions**
+- `get_client_info()` - Searches live clients across all sites, falls back to historical data
+- `get_ap_name()` - Resolves AP MAC to friendly hostname
+- `analyze_auth_issues()` - Detects authentication failures
+- `analyze_dhcp_dns_issues()` - Identifies network infrastructure problems
+- `analyze_client_health()` - Evaluates RSSI, SNR, retry rates, latency
+- `analyze_disconnection_patterns()` - 5-minute window disconnect analysis
+- `check_client_connectivity_ping()` - Packet loss and latency via ping
+- `check_ap_uptime()` - AP uptime check using AP ID
 
 #### ⚙️ **Configuration**
-- **Authentication**: Environment variables or `.env` file
-- **Organization**: Auto-detection or explicit specification
-- **Timeframes**: Configurable event history (default: 24 hours)
+- **Authentication**: `.env` file or environment variables
+  - `MIST_API_TOKEN` - Required
+  - `MIST_ORG_ID` - Optional (auto-detected)
+  - `MIST_BASE_URL` - Optional (defaults to EU region)
+- **Timeframes**: Configurable (default: 24 hours historical, 5 minutes for disconnects)
 
-### 👍 Enterprise Capabilities
+### 👍 Production Features
 
 #### 📈 **Diagnostic Coverage**
-- **Full Troubleshooting Workflow**: Implements complete Mist troubleshooting flowchart
-- **Multi-Layer Analysis**: From client association to RF environment evaluation
-- **Real-Time Monitoring**: Live client health and AP status monitoring
-- **Historical Analysis**: Event correlation and trend identification
+- **5-Step Workflow**: Client discovery → Authentication → Infrastructure → Health Metrics → Manual Guidance
+- **Multi-Site Search**: Automatically searches all sites for client
+- **Live Data Priority**: Fetches real-time stats over historical data
+- **Comprehensive Logging**: DEBUG logs to file with API traces, site searches, data resolution
 
-#### 🚀 **Enterprise Features**
-- **Scalable Architecture**: Handles multiple organizations and sites
-- **API-First Design**: Programmatic access for automation and integration
-- **Comprehensive Logging**: Detailed troubleshooting audit trails
-- **Error Recovery**: Robust error handling and graceful failure modes
+#### 🚀 **Enterprise Ready**
+- **Multi-Organization Support**: Handles multiple Mist organizations
+- **Smart Escalation**: Routes to Security (auth), Infrastructure (DHCP/DNS), or Manual (health)
+- **Audit Trail**: Complete session logging with DEBUG details for troubleshooting
+- **Error Recovery**: Graceful handling of API failures and missing data
 
-#### 🔍 **Advanced Analysis**
-- **Smart Correlation**: Links symptoms to root causes
-- **Priority-Based Triage**: Automatic severity classification
-- **Team Escalation**: Routes issues to appropriate technical teams
-- **Actionable Output**: Specific recommendations for issue resolution
-
-### 🔐 **Security Considerations**
-- API tokens stored securely via environment variables
-- No sensitive data logged or stored locally
-- Read-only API operations (no configuration changes)
-- Secure HTTPS communication with Mist Cloud
-
-### 📈 **Performance & Scalability**
-- Optimized API calls with intelligent caching
-- Concurrent processing for multi-client analysis
-- Configurable timeout and retry mechanisms
-- Efficient memory usage for large-scale deployments
+#### 🔐 **Security**
+- API tokens via environment variables (never hardcoded)
+- Read-only operations (no configuration changes)
+- HTTPS-only communication with Mist Cloud
+- No sensitive data in logs
 
 ### 🚀 Quick Start
 ```bash
@@ -159,7 +147,9 @@ python office_automation_cli.py wireless troubleshoot \
 MIST WIRELESS NETWORK TROUBLESHOOTER
 ======================================================================
 🔍 [STEP 1] Gathering Client Association Status & Events...
-✅ Client found: TestDevice on AP ac:12:34:56:78:90
+✅ Client found: Soumya-s-M31 connected to AP PHOENIX-FF-AP10 (ac23160e4683)
+   SSID: COLLEAGUE
+   Client details: RSSI=-57, SNR=37, IP=10.21.9.247
 
 🔍 [STEP 2] Checking Authentication and Authorization Failure Logs...
 ✅ No authentication/authorization issues detected
@@ -169,13 +159,33 @@ MIST WIRELESS NETWORK TROUBLESHOOTER
 
 🔍 [STEP 4] Analyzing Client Health Metrics...
 🟡 CLIENT HEALTH ISSUES DETECTED:
-   • RSSI: Poor signal strength: -75 dBm [MEDIUM]
-   • Channel Utilization (5GHz): High utilization: 78% [MEDIUM]
+   • Retries: High retry rates detected - TX: 19.9%, RX: 0.1% [MEDIUM]
 
-🎯 COMPREHENSIVE TROUBLESHOOTING COMPLETE
-   Issues found: 3 (0 HIGH, 3 MEDIUM)
+🔍 [STEP 4a] Analyzing Disconnection Patterns (past 5 minutes)...
+🔍 [STEP 4a] Checking Packet Loss and Average Latency via Ping...
+🔍 [STEP 4b] Checking AP Uptime (using AP ID)...
+   AP Uptime: 137.0 days (High uptime - consider scheduled reboot)
 
-📁 Detailed logs saved to: logs/troubleshooting-20250930-213045.log
+🎯 AUTOMATED ANALYSIS COMPLETE
+   Issues found: 2 (0 HIGH, 2 MEDIUM)
+
+📋 All automated checks complete. Proceed with manual troubleshooting if needed.
+
+Recommendations:
+  📋 Manual Troubleshooting Steps for Engineer:
+     1. Perform LAN/WAN/DHCP/DNS checks based on client metrics
+     2. Assess AP & Radio Performance (client load, channel utilization, noise)
+  
+  🔍 Use the following metrics for assessment:
+     • RSSI: -57 dBm (Good: > -67 dBm, Fair: -67 to -70, Poor: < -70)
+     • SNR: 37 dB (Good: > 20 dB, Fair: 15-20, Poor: < 15)
+     • TX Retry Rate: 19.9% (Good: < 5%, Concern: 10%+, Critical: 20%+)
+     • RX Retry Rate: 0.1% (Good: < 5%, Concern: 10%+, Critical: 20%+)
+  
+  💡 Suggested Actions Based on Metrics:
+     • High Retries: Check for channel congestion, co-channel interference, or RF obstacles
+
+📁 Detailed logs saved to: logs/troubleshooting-20251022-124117.log
 ======================================================================
 ```
 

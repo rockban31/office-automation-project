@@ -42,36 +42,81 @@ python office_automation_cli.py wireless troubleshoot --client-mac <MAC> --clien
 
 ### Step 1: Client Discovery
 Locates client in Mist system and validates association
+- Displays client hostname, SSID, AP name, and connection details
+- Shows RSSI, SNR, and IP address
+- Logs all session information for audit trails
 
 ### Step 2: Authentication Analysis
 Checks for 802.1X/PSK/RADIUS failures
+- Escalates to Security Team if authentication issues found
 
 ### Step 3: Network Infrastructure
 Validates DHCP/DNS functionality
+- Escalates to Infrastructure Team if DHCP/DNS issues found
 
-### Step 4: Health Metrics
-Analyzes RSSI, SNR, retry rates, latency
+### Step 4: Client Health Metrics Analysis
+When health issues are detected (RSSI, SNR, Retries, Latency), performs:
 
-### Step 5: Connectivity Testing
-Performs ping tests and reachability analysis
+#### Step 4a: Disconnection Pattern Analysis
+- **Time Frame**: Past 5 minutes
+- **Threshold**: ≥7 disconnect/disassociation events
+- **Packet Loss & Latency**: Via ping test (10 packets)
+  - Flags packet loss >5%
+  - Flags average latency >100ms
 
-### Step 6: AP Hardware Status
-Monitors AP resources (CPU, memory, temperature)
+#### Step 4b: AP Uptime Analysis
+- Uses AP ID (not MAC address)
+- Checks for high uptime (>30 days) or recent restarts (<1 hour)
+- Suggests scheduled reboot if needed
 
-### Step 7: RF Environment
-Analyzes channel utilization and interference
+
+### Step 5: Manual Troubleshooting Guidance
+Provides engineers with:
+- Current metric values with thresholds (RSSI, SNR, Retry Rates, Latency)
+- Suggested actions based on detected issues
+- Manual steps for LAN/WAN/DHCP/DNS, AP & Radio Performance, AP Hardware, and RF Environment analysis
 
 ## 📊 Output Interpretation
+
+### Client Information Display
+The troubleshooter now shows comprehensive client details:
+```
+✅ Client found: Soumya-s-M31 connected to AP PHOENIX-FF-AP10 (ac23160e4683)
+   SSID: COLLEAGUE
+   Client details: RSSI=-57, SNR=37, IP=10.21.9.247
+```
+
+### Health Metrics Thresholds
+The troubleshooter provides clear thresholds for manual assessment:
+
+#### RSSI (Signal Strength)
+- **Good**: > -67 dBm
+- **Fair**: -67 to -70 dBm
+- **Poor**: < -70 dBm
+
+#### SNR (Signal-to-Noise Ratio)
+- **Good**: > 20 dB
+- **Fair**: 15-20 dB
+- **Poor**: < 15 dB
+
+#### Retry Rates (TX/RX)
+- **Good**: < 5%
+- **Concern**: 10%+
+- **Critical**: 20%+
+
+#### Latency
+- **Good**: < 50ms
+- **Fair**: 50-100ms
+- **Poor**: 100ms+
 
 ### Issue Priorities
 - **🔴 HIGH**: Critical issues requiring immediate attention
 - **🟡 MEDIUM**: Issues that may impact performance
-- **🟢 LOW**: Minor issues or informational items
 
 ### Escalation Paths
 - **Security Team**: Authentication/Authorization failures
 - **Infrastructure Team**: DHCP/DNS issues
-- **Network Team**: RF environment problems
+- **Manual Troubleshooting**: Health metric issues requiring engineer assessment
 
 ## 📁 Log Files
 
@@ -120,6 +165,31 @@ python office_automation_cli.py auth test
 5. Arguments: `D:\office-automation-project\office_automation_cli.py wireless troubleshoot --client-mac <MAC> --client-ip <IP>`
 6. Start in: `D:\office-automation-project`
 
+
+## 📋 Additional Utilities
+
+### Check Connected Clients
+Quickly view currently connected clients across all sites:
+
+```bash
+# Set Python path and run
+$env:PYTHONPATH="D:\office-automation-project"
+python examples/check_clients.py
+```
+
+**Output includes:**
+- Client hostname
+- MAC address (formatted as xx:xx:xx:xx:xx:xx)
+- SSID
+- AP name (friendly hostname)
+- RSSI value
+
+**Example output:**
+```
+✅ Found 109 connected client(s)
+   • iPhone - MAC: c6:11:46:f0:15:af, SSID: COLLEAGUE, AP: Phoenix-SF-MR-2.1, RSSI: -79
+   • V2403 - MAC: 5e:17:6f:e9:21:44, SSID: COLLEAGUE, AP: PHOENIX-FF-AP05, RSSI: -55
+```
 
 ## 📈 Performance
 
@@ -224,19 +294,7 @@ Test-NetConnection api.eu.mist.com -Port 443
 - [ ] Document wrapper scripts/functions for your team
 - [ ] Set up scheduled monitoring (if needed)
 
-## 🎓 Training
 
-### For Network Engineers
-1. Show basic troubleshoot command
-2. Demonstrate verbose output
-3. Explain log interpretation
-4. Review escalation paths
-
-### For Automation Teams
-1. Show programmatic usage via Python API
-2. Demonstrate JSON output parsing
-3. Explain integration patterns
-4. Review error handling
 
 ## 📚 Additional Resources
 
@@ -248,5 +306,7 @@ Test-NetConnection api.eu.mist.com -Port 443
 ---
 
 **Status**: ✅ Production Ready  
-**Version**: 1.75.1  
-**Last Updated**: 2025-10-20
+**Version**: 1.76.0  
+**Last Updated**: 2025-10-22
+
+
