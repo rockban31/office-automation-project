@@ -43,24 +43,91 @@ Network administrators spend significant time manually troubleshooting wireless 
 │                        SYSTEM ARCHITECTURE                           │
 └─────────────────────────────────────────────────────────────────────┘
 
-┌──────────────────┐         ┌──────────────────┐         ┌──────────────────┐
-│   CLI Interface  │────────▶│  Authentication  │────────▶│   Mist Cloud     │
-│ (User Commands)  │         │     Layer        │         │      API         │
-└──────────────────┘         └──────────────────┘         └──────────────────┘
-         │                            │                            │
-         │                            │                            │
-         ▼                            ▼                            ▼
-┌──────────────────┐         ┌──────────────────┐         ┌──────────────────┐
-│  Troubleshooting │────────▶│   API Client     │────────▶│  Network Data    │
-│      Engine      │         │     Library      │         │   (Live Stats)   │
-└──────────────────┘         └──────────────────┘         └──────────────────┘
-         │                            │                            │
-         │                            │                            │
-         ▼                            ▼                            ▼
-┌──────────────────┐         ┌──────────────────┐         ┌──────────────────┐
-│   Issue Analysis │────────▶│  Escalation      │────────▶│    Reports &     │
-│  & Classification│         │     Routing      │         │      Logs        │
-└──────────────────┘         └──────────────────┘         └──────────────────┘
+                             USER/ENGINEER
+                                  │
+                                  │ CLI Commands
+                                  ▼
+                    ┌──────────────────────────┐
+                    │   CLI Interface Layer    │
+                    │ (office_automation_cli.py)│
+                    │  • Command parsing       │
+                    │  • Input validation      │
+                    │  • Output formatting     │
+                    └──────────────────────────┘
+                                  │
+                                  │ Initializes
+                                  ▼
+            ┌─────────────────────────────────────────┐
+            │     Authentication Layer                │
+            │     (src/auth/mist_auth.py)            │
+            │  • Token management                     │
+            │  • MistAPI session (using mistapi lib)  │
+            │  • SSL/TLS verification                 │
+            │  • Rate limiting                        │
+            │  • Organization detection               │
+            └─────────────────────────────────────────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    │                           │
+                    │ Passes auth instance      │
+                    ▼                           │
+    ┌───────────────────────────┐               │
+    │  Troubleshooting Engine   │               │
+    │  (src/troubleshooting/    │               │
+    │   mist_wireless.py)       │               │
+    │  • Uses auth.make_request()│              │
+    │  • Client discovery       │               │
+    │  • Multi-step analysis    │◄──────────────┘
+    │  • Pattern detection      │     Direct API calls
+    │  • Issue classification   │     via auth layer
+    │  • Escalation routing     │
+    │  • Report generation      │
+    └───────────────────────────┘
+                    │
+                    │ API Requests
+                    ▼
+    ┌─────────────────────────────────────┐
+    │         Mist Cloud API              │
+    │  (https://api.mist.com)             │
+    │  ────────────────────────────────   │
+    │  • /orgs/{org_id}/sites             │
+    │  • /sites/{site_id}/stats/clients   │
+    │  • /sites/{site_id}/devices         │
+    │  • /sites/{site_id}/insights        │
+    │  • /orgs/{org_id}/clients/search    │
+    └─────────────────────────────────────┘
+                    │
+                    │ Returns data
+                    ▼
+    ┌───────────────────────────────────────────┐
+    │  Analysis & Processing                     │
+    │  • Live client data (RSSI, SNR, IP)        │
+    │  • Historical events & patterns            │
+    │  • Authentication logs                     │
+    │  • Network infrastructure status           │
+    │  • AP health metrics                       │
+    └───────────────────────────────────────────┘
+                    │
+        ┌───────────┴───────────┐
+        │                       │
+        ▼                       ▼
+┌──────────────────┐  ┌──────────────────┐
+│  Console Output  │  │   Log Files      │
+│  • Summary       │  │  • DEBUG logs    │
+│  • Issues found  │  │  • API traces    │
+│  • Escalation    │  │  • Audit trail   │
+│  • Metrics       │  │  • Timestamps    │
+└──────────────────┘  └──────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ KEY ARCHITECTURAL PRINCIPLES                                         │
+├─────────────────────────────────────────────────────────────────────┤
+│ 1. Single Authentication Layer: All API calls go through MistAuth   │
+│ 2. Direct Integration: Troubleshooter uses auth instance directly   │
+│ 3. No Separate API Client: Uses mistapi library via auth layer      │
+│ 4. Modular Design: CLI → Auth → Troubleshooter → Mist API          │
+│ 5. Logging: Separate DEBUG file logs, clean console output          │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
