@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 """Quick script to check currently connected clients"""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from src.auth.mist_auth import MistAuth
 import json
 
