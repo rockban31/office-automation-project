@@ -14,14 +14,11 @@ This document provides a comprehensive overview of the Office Automation Project
 
 1. [Project Architecture & Overview](#project-architecture--overview)
 2. [Development Phases & Status](#development-phases--status)
-3. [Testing & Validation](#testing--validation)
-4. [Current Capabilities](#current-capabilities)
-5. [Technical Implementation Details](#technical-implementation-details)
-6. [Project Structure & Organization](#project-structure--organization)
-7. [Configuration & Setup](#configuration--setup)
-8. [Usage Examples & Documentation](#usage-examples--documentation)
-9. [Next Steps & Future Roadmap](#next-steps--future-roadmap)
-10. [Summary](#summary)
+3. [Technical Implementation Details](#technical-implementation-details)
+4. [Project Structure & Organization](#project-structure--organization)
+5. [Configuration & Setup](#configuration--setup)
+6. [Usage Examples & Documentation](#usage-examples--documentation)
+7. [Next Steps & Future Roadmap](#next-steps--future-roadmap)
 
 ---
 
