@@ -6,7 +6,7 @@ This document provides detailed Mist API endpoints and parameters for troublesho
 ## Base API Configuration
 
 ```python
-BASE_URL = "https://api.mist.com/api/v1"
+BASE_URL = "https://api.eu.mist.com/api/v1"
 HEADERS = {
     "Authorization": f"Token {API_TOKEN}",
     "Content-Type": "application/json"
@@ -242,75 +242,146 @@ def analyze_signal_quality(client_data):
     return issues
 ```
 
-### 3.2 Access Point Radio Statistics
-**Purpose**: Get AP radio performance and interference data
+### 3.2 Access Point Uptime Statistics
+**Purpose**: Get AP uptime and health data for maintenance planning
 
 ```http
-GET /orgs/{org_id}/devices/{ap_mac}/stats
+GET /sites/{site_id}/stats/devices/{ap_mac}
 ```
 **Key Response Fields**:
-- `radio_stat`: Per-radio statistics
-  - `util_all`: Channel utilization percentage
-  - `util_non_wifi`: Non-WiFi interference
-  - `util_rx`: RX utilization
-  - `util_tx`: TX utilization
-- `uptime`: AP uptime in seconds
-- `memory_usage`: Memory utilization
-- `cpu_usage`: CPU utilization
+- `uptime`: AP uptime in seconds (primary health metric)
+- `status`: AP connection status (connected/disconnected)
+- `name`: AP name/identifier
+- `mac`: AP MAC address
 
-**Radio Analysis Example**:
+**AP Uptime Analysis Example**:
 ```python
-def analyze_ap_radio(ap_stats):
-    radio_stats = ap_stats.get('radio_stat', {})
+def check_ap_uptime(site_id, ap_id):
+    """Check AP uptime and provide reboot recommendations"""
+    ap_stats = get_ap_stats(site_id, ap_id)
     
-    for band, stats in radio_stats.items():
-        if isinstance(stats, dict):
-            channel_util = stats.get('util_all', 0)
-            non_wifi_interference = stats.get('util_non_wifi', 0)
-            
-            if channel_util > 80:
-                print(f"High utilization on {band}: {channel_util}%")
-            if non_wifi_interference > 30:
-                print(f"High interference on {band}: {non_wifi_interference}%")
+    if not ap_stats:
+        return None
+    
+    uptime = ap_stats.get('uptime')
+    if not uptime:
+        return None
+    
+    uptime_hours = uptime / 3600
+    uptime_days = uptime_hours / 24
+    
+    # Industry best practice thresholds (180 days)
+    if uptime_hours > (180 * 24):
+        return {
+            'status': 'WARNING',
+            'uptime_days': uptime_days,
+            'needs_reboot': True,
+            'recommendation': 'High uptime - schedule AP reboot during maintenance window'
+        }
+    elif uptime_hours < 1:
+        return {
+            'status': 'WARNING',
+            'uptime_days': uptime_days,
+            'needs_reboot': True,
+            'recommendation': 'Recent restart detected - monitor for stability issues'
+        }
+    else:
+        return {
+            'status': 'NORMAL',
+            'uptime_days': uptime_days,
+            'needs_reboot': False,
+            'recommendation': 'Uptime within normal range (1hr - 180 days)'
+        }
 ```
 
 ### 3.3 AP Device Information
-**Purpose**: Get AP hardware and configuration details
+**Purpose**: Get AP name and basic device details
 
 ```http
-GET /orgs/{org_id}/devices/{ap_mac}
+GET /sites/{site_id}/devices/{ap_mac}
 ```
 **Key Response Fields**:
-- `status`: AP connection status
-- `name`: AP name/identifier
+- `name`: AP name/identifier (resolved from MAC)
+- `mac`: AP MAC address
 - `model`: AP model
-- `version`: Firmware version
-- `uptime`: Uptime in seconds
-- `last_seen`: Last check-in timestamp
+- `type`: Device type (should be 'ap')
 
-### 3.4 Client Connection History
-**Purpose**: Track client roaming and connection patterns
+**AP Name Resolution Example**:
+```python
+def get_ap_name(site_id, ap_mac):
+    """Get AP name from MAC address"""
+    devices = make_api_request(f"/sites/{site_id}/devices")
+    
+    # Normalize MAC for comparison
+    search_mac = ap_mac.lower().replace(':', '').replace('-', '')
+    
+    for device in devices:
+        device_mac = device.get('mac', '').lower().replace(':', '').replace('-', '')
+        if device_mac == search_mac and device.get('type') == 'ap':
+            return device.get('name', 'Unknown')
+    
+    return 'Unknown'
+```
+
+### 3.4 Client Health Metrics
+**Purpose**: Get real-time client wireless performance data
 
 ```http
-GET /sites/{site_id}/clients/{client_mac}/sessions
+GET /sites/{site_id}/stats/clients?mac={client_mac}
 ```
-**Analysis Fields**:
-- `connect_time`: When client connected
-- `disconnect_time`: When client disconnected
-- `disconnect_reason`: Reason for disconnection
-- `duration`: Session duration
-- `ap_mac`: Which AP served the client
+**Key Response Fields for Health Analysis**:
+- `rssi`: Signal strength (dBm) - Good: > -67 dBm, Poor: < -70 dBm
+- `snr`: Signal-to-Noise ratio (dB) - Good: > 20 dB, Poor: < 15 dB
+- `tx_retries`: TX packet retransmissions
+- `rx_retries`: RX packet retransmissions
+- `tx_pkts`: Total TX packets
+- `rx_pkts`: Total RX packets
+- `ap_mac`: Connected AP MAC address
 
-### 3.5 RF Environment Analysis
-**Purpose**: Get RF scan and interference data
-
-```http
-GET /sites/{site_id}/devices/{ap_mac}/rrm
+**Client Health Analysis Example**:
+```python
+def analyze_client_health(client_info):
+    issues = []
+    
+    # Check RSSI (Signal Strength)
+    rssi = client_info.get('rssi')
+    if rssi and rssi < -70:
+        issues.append({
+            'metric': 'RSSI',
+            'value': rssi,
+            'severity': 'HIGH' if rssi < -80 else 'MEDIUM',
+            'issue': f'Poor signal strength: {rssi} dBm (should be > -67 dBm)'
+        })
+    
+    # Check SNR (Signal Quality)
+    snr = client_info.get('snr')
+    if snr and snr < 15:
+        issues.append({
+            'metric': 'SNR',
+            'value': snr,
+            'severity': 'HIGH' if snr < 10 else 'MEDIUM',
+            'issue': f'Poor signal quality: {snr} dB SNR (should be > 20 dB)'
+        })
+    
+    # Check Retry Rates
+    tx_retries = client_info.get('tx_retries', 0)
+    rx_retries = client_info.get('rx_retries', 0)
+    tx_pkts = client_info.get('tx_pkts', 0)
+    rx_pkts = client_info.get('rx_pkts', 0)
+    
+    tx_retry_rate = (tx_retries / tx_pkts * 100) if tx_pkts > 0 else 0
+    rx_retry_rate = (rx_retries / rx_pkts * 100) if rx_pkts > 0 else 0
+    
+    if tx_retry_rate > 10 or rx_retry_rate > 10:
+        issues.append({
+            'metric': 'Retries',
+            'value': f'TX: {tx_retry_rate:.1f}%, RX: {rx_retry_rate:.1f}%',
+            'severity': 'HIGH' if tx_retry_rate > 20 or rx_retry_rate > 20 else 'MEDIUM',
+            'issue': f'High retry rates (should be < 10%)'
+        })
+    
+    return issues
 ```
-**Key Response Fields**:
-- `neighbor_aps`: Nearby AP interference
-- `channel_interference`: Per-channel interference levels
-- `recommended_channels`: RRM channel recommendations
 
 ## 4. Combined Troubleshooting Queries
 

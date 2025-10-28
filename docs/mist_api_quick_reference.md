@@ -9,10 +9,6 @@
 | **Authentication** | `/sites/{site_id}/events` | Site-wide auth events | `duration`, `type` |
 | **DHCP/DNS** | `/orgs/{org_id}/clients/{mac}/events` | Client network events | `start`, `end`, `limit` |
 | **DHCP/DNS** | `/sites/{site_id}/networks` | Network configuration | None |
-| **Signal Issues** | `/orgs/{org_id}/clients/search` | Client signal metrics | `mac` |
-| **Signal Issues** | `/orgs/{org_id}/devices/{ap_mac}/stats` | AP radio statistics | None |
-| **Signal Issues** | `/orgs/{org_id}/devices/{ap_mac}` | AP device info | None |
-| **Signal Issues** | `/sites/{site_id}/clients/{mac}/sessions` | Connection history | None |
 
 ## Critical Event Types to Monitor
 

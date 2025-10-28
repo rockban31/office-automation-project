@@ -1,8 +1,8 @@
-# Client Health Metrics Analysis Guide (STEP 4)
+# Client Health Metrics Analysis Guide 
 
 ## Overview
 
-STEP 4 of the wireless troubleshooter performs comprehensive analysis of client connection quality by examining multiple wireless performance indicators. This guide explains what each metric means and how to interpret the results.
+Wireless troubleshooter performs comprehensive analysis of client connection quality by examining multiple wireless performance indicators. This guide explains what each metric means and how to interpret the results.
 
 ---
 
@@ -144,64 +144,6 @@ STEP 4 of the wireless troubleshooter performs comprehensive analysis of client 
 
 ---
 
-## 🔄 What Happens After STEP 4?
-
-### **If NO Health Issues Detected:**
-✅ Troubleshooter marks client as healthy and proceeds to STEP 5 (All checks passed)
-
-### **If Health Issues ARE Detected:**
-The troubleshooter proceeds with deeper analysis:
-
-#### **STEP 4a: Client Connectivity & Reachability Tests**
-- Ping tests to client IP
-- Packet loss measurement
-- Latency measurement
-- Disconnection frequency analysis
-
-**What it checks:**
-```
-• Can we reach the client?
-• Is packet loss acceptable (<5%)?
-• Is ping latency reasonable (<100ms)?
-• Is the client disconnecting frequently?
-```
-
-#### **STEP 4b: AP Uptime Analysis**
-- Checks how long AP has been running
-- Identifies if AP needs reboot
-
-**What it checks:**
-```
-• Has AP been up > 30 days? (may need scheduled reboot)
-• Has AP been up < 1 hour? (recent restart - stability issue?)
-```
-
-#### **STEP 4c: AP Hardware Status**
-- CPU utilization
-- Memory usage
-- Temperature monitoring
-
-**What it checks:**
-```
-• Is AP CPU overloaded (>80%)?
-• Is AP memory exhausted (>85%)?
-• Is AP overheating (>70°C)?
-```
-
-#### **STEP 4d: RF Environment Analysis**
-- Channel utilization on 2.4/5 GHz
-- Noise floor levels
-- Co-channel interference (multiple APs on same channel)
-
-**What it checks:**
-```
-• Is the channel congested (>70% utilization)?
-• Is RF noise high (> -85 dBm)?
-• Are too many APs using the same channel?
-```
-
----
-
 ## 🎯 Real Example from Your Network
 
 Here's an actual analysis from your network:
@@ -245,13 +187,7 @@ Result: ✅ All health metrics within normal ranges!
 
 ## 🔍 How to Test
 
-Run the demonstration script:
-
-```bash
-python examples/health_metrics_demo.py
-```
-
-Or run full troubleshooting:
+Run full troubleshooting:
 
 ```bash
 python office_automation_cli.py wireless troubleshoot --client-mac <MAC> --client-ip <IP>

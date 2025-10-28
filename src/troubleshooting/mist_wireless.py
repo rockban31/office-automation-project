@@ -357,14 +357,14 @@ class MistWirelessTroubleshooter:
         
         uptime_hours = uptime / 3600
         
-        # Suggest reboot if uptime is very high (>30 days) or very low (<1 hour, indicating recent issues)
-        needs_reboot = uptime_hours > (30 * 24) or uptime_hours < 1
+        # Suggest reboot if uptime is very high (>180 days) or very low (<1 hour, indicating recent issues)
+        needs_reboot = uptime_hours > (180 * 24) or uptime_hours < 1
         
         return {
             'uptime_hours': uptime_hours,
             'uptime_days': uptime_hours / 24,
             'needs_reboot': needs_reboot,
-            'reason': 'High uptime - consider scheduled reboot' if uptime_hours > (30 * 24) 
+            'reason': 'High uptime - consider scheduled reboot' if uptime_hours > (180 * 24)
                      else 'Recent restart detected - may indicate stability issues' if uptime_hours < 1 
                      else 'Uptime normal'
         }
