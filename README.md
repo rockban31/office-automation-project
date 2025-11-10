@@ -66,7 +66,15 @@ with MistAuth() as auth:
 - **Network Infrastructure** - DHCP/DNS validation with DNS resolution, internet connectivity, gateway reachability tests
 - **Health Metrics** - RSSI, SNR, retry rates, latency analysis with clear thresholds
 - **Disconnection Patterns** - 5-minute window analysis (≥7 events threshold)
-- **AP Uptime** - Identifies high uptime (>30 days) or recent restarts (<1 hour)
+- **AP Uptime** - Identifies high uptime (>180 days) or recent restarts (<1 hour)
+
+#### 📊 **AP Uptime Thresholds**
+
+| Condition | Threshold | Recommendation |
+|-----------|-----------|----------------|
+| **High Uptime** | > **180 days** | Reboot recommended during maintenance window |
+| **Normal Uptime** | **1 hour - 180 days** | Normal operation |
+| **Recent Restart** | < **1 hour** | May indicate stability issues - monitor |
 
 #### 🚀 **Smart Features**
 - **DEBUG Logging**: Comprehensive file-based logging (API calls, site searches, data resolution)
