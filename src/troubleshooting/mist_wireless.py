@@ -641,10 +641,8 @@ class MistWirelessTroubleshooter:
                 ]
                 results['steps_completed'].append('authentication_check')
                 
-                print(f"\n📋 FLOWCHART DECISION: Authentication/Authorization Failure → Troubleshoot on ISE")
-                print(f"\n🎯 ESCALATION: Route to Network Security / Identity Management team")
-                self.log("Session ended with escalation to Network Security team for authentication issues")
-                return results
+                print(f"\n⚠️  Authentication/Authorization issues detected - continuing with remaining checks...")
+                self.log("Authentication issues found - continuing with full analysis")
             
             print(f"✅ No authentication/authorization issues detected")
             self.log("STEP 2 completed: No authentication/authorization issues detected")
@@ -684,10 +682,8 @@ class MistWirelessTroubleshooter:
                 ]
                 results['steps_completed'].extend(['dhcp_dns_check', 'infrastructure_check'])
                 
-                print(f"\n📋 FLOWCHART DECISION: DNS/DHCP Lease Errors → Check Network Infrastructure")
-                print(f"\n🎯 ESCALATION: Route to Network Infrastructure team")
-                self.log("Session ended with escalation to Network Infrastructure team for DHCP/DNS issues")
-                return results
+                print(f"\n⚠️  DHCP/DNS issues detected - continuing with remaining checks...")
+                self.log("DHCP/DNS issues found - continuing with full analysis")
             
             print(f"✅ No DNS/DHCP lease errors detected")
             self.log("STEP 3 completed: No DNS/DHCP lease errors detected")
@@ -824,24 +820,104 @@ class MistWirelessTroubleshooter:
             self.log("STEP 4 completed: No client health metric issues detected")
             results['steps_completed'].append('health_check')
             
-            # STEP 5: All Checks Passed
-            print(f"\n✅ ALL AUTOMATED CHECKS COMPLETED SUCCESSFULLY!")
-            print(f"\n📋 All automated checks look good; proceed with manual troubleshooting steps as needed.")
+            # STEP 5: Final Summary - Aggregate all issues found across all steps
+            print(f"\n{'='*70}")
+            print(f"COMPLETE TROUBLESHOOTING SUMMARY")
+            print(f"{'='*70}")
             
-            results['status'] = 'all_good'
-            results['escalation_path'] = 'manual_steps_if_needed'
-            results['recommendations'] = [
-                "✅ All automated checks look good; proceed with manual troubleshooting steps as needed."
-            ]
-            results['steps_completed'].append('all_checks_complete')
+            all_issues = results['issues_found']
+            high_issues = [i for i in all_issues if i.get('severity') == 'HIGH']
+            medium_issues = [i for i in all_issues if i.get('severity') == 'MEDIUM']
+            low_issues = [i for i in all_issues if i.get('severity') == 'LOW']
             
-            # Log final session summary
-            self.log("="*60)
-            self.log("ALL AUTOMATED CHECKS COMPLETED SUCCESSFULLY")
-            self.log(f"Status: {results['status']}")
-            self.log(f"Steps completed: {', '.join(results['steps_completed'])}")
-            self.log("No issues detected - all metrics within normal thresholds")
-            self.log("="*60)
+            if all_issues:
+                # Determine primary issue category
+                has_auth_issues = any('authentication_check' in results['steps_completed'] and 
+                                     i.get('type') in ['802.1X Failure', 'Authorization Failure', 'PSK Failure'] 
+                                     for i in all_issues)
+                has_dhcp_dns_issues = any('dhcp_dns_check' in results['steps_completed'] and 
+                                         i.get('type') in ['DHCP Error', 'DNS Error'] 
+                                         for i in all_issues)
+                has_health_issues = len(high_issues) > 0 or len(medium_issues) > 0
+                
+                # Set status based on issues found
+                if has_auth_issues:
+                    results['status'] = 'issues_found_authentication'
+                    results['escalation_path'] = 'Network Security / Identity Management team'
+                elif has_dhcp_dns_issues:
+                    results['status'] = 'issues_found_network_infrastructure'
+                    results['escalation_path'] = 'Network Infrastructure team'
+                elif has_health_issues:
+                    results['status'] = 'issues_found_client_health'
+                    results['escalation_path'] = 'Manual troubleshooting required'
+                else:
+                    results['status'] = 'issues_found_other'
+                    results['escalation_path'] = 'Review all findings'
+                
+                print(f"🚨 ISSUES DETECTED: {len(all_issues)} total")
+                print(f"   • HIGH severity: {len(high_issues)}")
+                print(f"   • MEDIUM severity: {len(medium_issues)}")
+                print(f"   • LOW severity: {len(low_issues)}")
+                print(f"\n🎯 Recommended Action: {results['escalation_path']}")
+                
+                # Build comprehensive recommendations
+                if not results.get('recommendations'):
+                    results['recommendations'] = []
+                
+                if has_auth_issues:
+                    results['recommendations'].extend([
+                        "",
+                        "🔐 Authentication/Authorization Issues:",
+                        "   • Check RADIUS server connectivity",
+                        "   • Verify user credentials and certificates",
+                        "   • Review ISE authorization policies"
+                    ])
+                
+                if has_dhcp_dns_issues:
+                    results['recommendations'].extend([
+                        "",
+                        "🌐 DHCP/DNS Issues:",
+                        "   • Check DHCP server availability",
+                        "   • Verify DNS resolution",
+                        "   • Test network connectivity"
+                    ])
+                
+                if has_health_issues:
+                    results['recommendations'].extend([
+                        "",
+                        "📊 Client Health Issues:",
+                        "   • Review RSSI/SNR metrics",
+                        "   • Check for RF interference",
+                        "   • Assess AP performance"
+                    ])
+                
+                self.log("="*60)
+                self.log(f"TROUBLESHOOTING COMPLETE - ISSUES FOUND")
+                self.log(f"Total issues: {len(all_issues)} (HIGH: {len(high_issues)}, MEDIUM: {len(medium_issues)}, LOW: {len(low_issues)})")
+                self.log(f"Status: {results['status']}")
+                self.log(f"Escalation: {results['escalation_path']}")
+                self.log(f"Steps completed: {', '.join(results['steps_completed'])}")
+                self.log("="*60)
+            else:
+                # No issues found
+                print(f"✅ ALL CHECKS PASSED - NO ISSUES DETECTED")
+                print(f"\nAll automated checks look good. Client connectivity appears normal.")
+                
+                results['status'] = 'all_good'
+                results['escalation_path'] = 'none'
+                results['recommendations'] = [
+                    "✅ All automated checks passed successfully",
+                    "If issues persist, perform manual troubleshooting"
+                ]
+                
+                self.log("="*60)
+                self.log("ALL CHECKS PASSED - NO ISSUES DETECTED")
+                self.log(f"Status: {results['status']}")
+                self.log(f"Steps completed: {', '.join(results['steps_completed'])}")
+                self.log("="*60)
+            
+            results['steps_completed'].append('final_summary')
+            print(f"{'='*70}")
             
             return results
             
