@@ -125,13 +125,13 @@ def run_tests():
     
     # Check if we can import the main module
     try:
-        sys.path.insert(0, "src")
-        from auth import MistAuth
+        sys.path.insert(0, os.path.abspath("src"))
+        from src.auth import MistAuth
         print("✓ Main modules can be imported successfully.")
     except ImportError as e:
         print(f"✗ Failed to import modules: {e}")
         return False
-    
+
     # Run pytest if available
     pip_cmd = get_pip_command()
     if platform.system() == "Windows":
